@@ -3,20 +3,16 @@ services:
     name: beer-qr-code
     runtime: node
     region: singapore
-    plan: 0.5c-512mb
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/menu
     autoDeployTrigger: commit
-    disk:
-      name: beer-qr-data
-      mountPath: /opt/render/project/src/storage
-      sizeGB: 1
     envVars:
       - key: DATA_FILE
-        value: /opt/render/project/src/storage/data.json
+        value: /tmp/beer-qr-data.json
       - key: IMG_DIR
-        value: /opt/render/project/src/storage/images
+        value: /tmp/beer-qr-images
       - key: STAFF_PIN
         sync: false
       - key: ADMIN_PIN
