@@ -41,6 +41,17 @@ QR ที่โต๊ะต้องชี้ไปที่ที่อยู�
 
 ใช้ https เสมอเมื่อเปิดใช้จริง (PIN พนักงานส่งผ่านเครือข่าย)
 
+## Deploy ด้วย Render
+
+โปรเจกต์มี `render.yaml` สำหรับสร้าง Node.js Web Service ที่ region สิงคโปร์ พร้อม Persistent Disk 1 GB
+
+1. ใน Render เลือก **New Blueprint Instance** และเชื่อม repository นี้
+2. ใส่ `STAFF_PIN` และ `ADMIN_PIN` ให้เป็นคนละรหัส ห้ามใช้ค่าเริ่มต้น
+3. ตรวจแผนและค่าบริการก่อนกด Apply
+4. เมื่อ deploy สำเร็จ เปิด `/admin` และตั้งชื่อร้าน จำนวนโต๊ะ และเมนูก่อนพิมพ์ QR
+
+ตัวแป `DATA_FILE` และ `IMG_DIR` ชี้ไปยังดิสก์ถาวรภายใต้ `/opt/render/project/src/storage` แล้ว ห้ามเปลี่ยนเป็นที่เก็บชั่วคราว
+
 ## ตัวแปรที่ตั้งได้ (environment variables)
 | ชื่อ | ค่าเริ่มต้น | ความหมาย |
 |---|---|---|
