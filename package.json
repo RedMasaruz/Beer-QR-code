@@ -1,0 +1,16 @@
+{
+  "name": "shop-qr-order",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ระบบสแกน QR สั่งอาหารที่โต๊ะสำหรับร้านเดียว",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.3"
+  }
+}

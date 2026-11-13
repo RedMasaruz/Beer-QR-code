@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รับออเดอร์</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="bar">
+  <h1 id="shop">รับออเดอร์</h1>
+  <span id="live" class="badge gray">กำลังเชื่อมต่อ…</span>
+  <a href="/admin">แอดมิน</a>
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="start">
+  <div style="font-size:26px;font-weight:700">รับออเดอร์ / แคชเชียร์</div>
+  <div>แตะปุ่มด้านล่างเพื่อเริ่มรับออเดอร์ (ต้องแตะก่อนเสียงเตือนจึงจะดัง)</div>
+  <button class="btn" id="startBtn">เริ่มรับออเดอร์ 🔔</button>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+
+let orders = [];
+let requirePay = false;
+let tab = 'active';
+let audioCtx = null;
+let known = null; // id ที่เคยเห็นแล้ว (ใช้ตรวจออเดอร์ใหม่)
+const flashIds = new Set();
+
+/* ---------- เสียง ---------- */
+function beep() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  [880, 1175, 880].forEach((f, i) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = f; o.type = 'sine';
+    g.gain.setValueAtTime(0.0001, t + i * 0.22);
+    g.gain.exponentialRampToValueAtTime(0.5, t + i * 0.22 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.22 + 0.2);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t + i * 0.22); o.stop(t + i * 0.22 + 0.22);
+  });
+}
+$('startBtn').onclick = async () => {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  beep();
+  $('start').classList.add('hidden');
+  try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch {} // กันจอดับ
+};
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden) { try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch {} load(); }
+});
+// ออเดอร์ใหม่ที่ยังไม่มีใครกดรับ → เตือนซ้ำทุก 20 วินาที (กันครัวไม่ได้ดูจอ)
+setInterval(() => { if (needsAttention().length) beep(); }, 20000);
+
+/* ---------- ข้อมูล ---------- */
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (r.status === 401) { location.href = '/login?next=/kitchen'; throw new Error('unauthorized'); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+  return j;
+}
+
+function needsAttention() {
+  // ใหม่ + (ถ้าตั้งให้จ่ายก่อน ต้องจ่ายแล้ว) = ครัวต้องรีบรับ
+  return orders.filter((o) => o.status === 'new' && (!requirePay || o.paid));
+}
+
+async function load() {
+  const j = await api('/api/staff/orders');
+  orders = j.orders;
+  requirePay = j.requirePaymentBeforeKitchen;
+  $('shop').textContent = 'รับออเดอร์ · ' + j.shopName;
+  const ids = new Set(orders.map((o) => o.id));
+  if (known) {
+    const fresh = orders.filter((o) => !known.has(o.id));
+    if (fresh.length) { fresh.forEach((o) => flashIds.add(o.id)); beep(); }
+  }
+  known = ids;
+  render();
+}
+
+function connect() {
+  const es = new EventSource('/api/staff/events');
+  es.onopen = () => { $('live').textContent = 'เชื่อมต่ออยู่'; $('live').className = 'badge ok'; };
+  es.addEventListener('change', () => load().catch(() => {}));
+  es.onerror = () => { $('live').textContent = 'หลุดการเชื่อมต่อ — กำลังต่อใหม่'; $('live').className = 'badge bad'; };
+}
+setInterval(() => load().catch(() => {}), 10000); // สำรอง เผื่อ SSE สะดุด
+
+/* ---------- แสดงผล ---------- */
+const TABS = [
+  ['active', 'ต้องทำ'],
+  ['unpaid', 'รอรับเงิน'],
+  ['done', 'เสร็จแล้ว'],
+];
+function filtered() {
+  const live = orders.filter((o) => o.status !== 'cancelled');
+  if (tab === 'active') return live.filter((o) => o.status === 'new' || o.status === 'cooking').sort((a, b) => a.createdAt - b.createdAt);
+  if (tab === 'unpaid') return live.filter((o) => !o.paid).sort((a, b) => a.createdAt - b.createdAt);
+  return orders.filter((o) => (o.status === 'served' && o.paid) || o.status === 'cancelled').sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function render() {
+  const counts = {
+    active: orders.filter((o) => o.status === 'new' || o.status === 'cooking').length,
+    unpaid: orders.filter((o) => !o.paid && o.status !== 'cancelled').length,
+    done: 0,
+  };
+  $('tabs').innerHTML = TABS.map(([k, label]) =>
+    `<button class="chip ${tab === k ? 'on' : ''}" data-t="${k}">${label}${counts[k] ? ' (' + counts[k] + ')' : ''}</button>`).join('');
+  $('tabs').querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { tab = b.dataset.t; render(); }));
+
+  const list = filtered();
+  $('grid').innerHTML = list.length ? list.map(card).join('') : '<p class="muted" style="padding:0 16px">ไม่มีรายการ</p>';
+  $('grid').querySelectorAll('[data-act]').forEach((b) => (b.onclick = () => act(b.dataset.id, b.dataset.act)));
+  flashIds.clear();
+}
+
+function card(o) {
+  const mins = Math.floor((Date.now() - o.createdAt) / 60000);
+  const late = (o.status === 'new' || o.status === 'cooking') && mins >= 10;
+  const items = o.items.map((i) => `<li><b>${i.qty} ×</b> ${esc(i.name)}${i.note ? `<small>📝 ${esc(i.note)}</small>` : ''}</li>`).join('');
+  const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
+  const refundBadge = o.refunded > 0 ? ` <span class="badge warn">คืนแล้ว ${fmt(o.refunded)}</span>` : '';
+  const payBadge = o.status === 'cancelled' && !o.paid ? '' : o.paid
+    ? `<span class="badge ok">จ่ายแล้ว · ${METHOD_TH[o.paymentMethod] || 'อื่น ๆ'}</span>${refundBadge}`
+    : '<span class="badge bad">ยังไม่จ่าย</span>';
+  const waitingPay = requirePay && !o.paid && o.status === 'new';
+
+  let main = '';
+  if (o.status === 'new') main = `<button class="btn" data-act="cooking" data-id="${o.id}" ${waitingPay ? 'disabled' : ''}>${waitingPay ? 'รอรับเงินก่อน' : 'เริ่มทำ'}</button>`;
+  else if (o.status === 'cooking') main = `<button class="btn ok" data-act="served" data-id="${o.id}">เสิร์ฟแล้ว</button>`;
+
+  // รับเงิน: ปุ่มแรกคือ PromptPay (แตะครั้งเดียวจบ) มี "เงินสด" และ "อื่น ๆ" ข้าง ๆ
+  const canRefund = o.paid && o.total - o.refunded > 0;
+  const payBtn = o.status === 'cancelled' && !o.paid ? ''
+    : o.paid ? (canRefund ? `<button class="btn ghost small" data-act="refund" data-id="${o.id}">คืนเงิน</button>` : '')
+        + (o.refunded > 0 ? '' : `<button class="btn ghost small" data-act="unpay" data-id="${o.id}">ยกเลิกการรับเงิน</button>`)
+    : `<div class="staff-pay-note">นำ QR บัญชีร้านให้ลูกค้าสแกน และให้พิมพ์ยอด <b>${fmt(o.total)}</b></div>`
+      + `<button class="btn ok small" data-act="pay" data-id="${o.id}">ตรวจเงินเข้าแล้ว · PromptPay</button>`
+      + `<button class="btn ok small" data-act="paycash" data-id="${o.id}">เงินสด</button>`
+      + `<button class="btn ghost small" data-act="payother" data-id="${o.id}">อื่น ๆ</button>`;
+  const cancel = o.status === 'cancelled' ? ''
+    : `<button class="btn ghost small" data-act="cancel" data-id="${o.id}">ยกเลิกออเดอร์</button>`;
+
+  return `<div class="card kcard ${o.status} ${late ? 'late' : ''} ${flashIds.has(o.id) ? 'flash' : ''}">
+    <h3><span>โต๊ะ ${o.table} <small class="muted">#${o.seq}</small></span><span class="muted" style="font-size:14px">${mins} นาที</span></h3>
+    <div>${payBadge} <b>${fmt(o.total)}</b></div>
+    <ul>${items}</ul>
+    <div class="acts">${main}${payBtn}${cancel}</div>
+  </div>`;
+}
+
+async function act(id, a) {
+  try {
+    if (a === 'cooking' || a === 'served') await post(`/api/staff/orders/${id}/status`, { status: a });
+    else if (a === 'pay' || a === 'paycash' || a === 'payother')
+      await post(`/api/staff/orders/${id}/paid`, { paid: true, method: { pay: 'promptpay', paycash: 'cash', payother: 'other' }[a] });
+    else if (a === 'refund') {
+      const o = orders.find((x) => x.id === id);
+      const left = Math.round((o.total - o.refunded) * 100) / 100;
+      const amt = prompt(`จำนวนเงินที่คืนลูกค้า (บาท) — คืนได้อีกสูงสุด ${left}`, left);
+      if (amt === null) return;
+      const reason = prompt('เหตุผลที่คืนเงิน (จำเป็นต้องกรอก)', '');
+      if (reason === null) return;
+      await post(`/api/staff/orders/${id}/refund`, { amount: amt, reason });
+      alert('บันทึกการคืนเงินแล้ว อย่าลืมคืนเงินให้ลูกค้าจริง (ระบบไม่ได้โอนเงินให้)');
+      if (Number(amt) >= left - 0.001 && confirm('คืนเงินเต็มจำนวนแล้ว ยกเลิกออเดอร์นี้ด้วยไหม?'))
+        await post(`/api/staff/orders/${id}/status`, { status: 'cancelled' });
+    }
+    else if (a === 'unpay') { if (confirm('ยกเลิกการรับเงินของออเดอร์นี้?')) await post(`/api/staff/orders/${id}/paid`, { paid: false }); }
+    else if (a === 'cancel') { if (confirm('ยกเลิกออเดอร์นี้?')) await post(`/api/staff/orders/${id}/status`, { status: 'cancelled' }); }
+    await load();
+  } catch (e) { alert(e.message); }
+}
+const post = (url, body) => api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+load().then(connect).catch(() => {});
+setInterval(() => { if (orders.length) render(); }, 30000); // อัปเดตตัวเลข "กี่นาที"
+</script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สั่งอาหาร</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="top"><div class="wrap">
+  <h1><span id="shop">...</span> · <span class="tbl" id="tbl"></span></h1>
+</div></div>
+
+<div class="wrap">
+  <div id="orders"></div>
+  <div class="chips" id="chips"></div>
+  <div id="menu"></div>
+  <div class="spacer"></div>
+</div>
+
+<div class="cartbar hidden" id="cartbar">
+  <button class="btn" id="openCart"><span id="cartCount"></span><span id="cartTotal"></span></button>
+</div>
+
+<dialog id="cartDlg"><div class="dlg">
+  <h2>ตะกร้าของคุณ</h2>
+  <div id="cartRows"></div>
+  <div class="total"><span>รวม</span><span id="cartSum"></span></div>
+  <div class="inline" style="justify-content:flex-end">
+    <button class="btn ghost" id="closeCart">กลับไปเลือกต่อ</button>
+    <button class="btn" id="placeBtn">สั่งอาหาร</button>
+  </div>
+</div></dialog>
+
+<script>
+const table = parseInt(location.pathname.split('/')[2], 10);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const STATUS = { new: 'รอร้านรับออเดอร์', cooking: 'กำลังทำ', served: 'เสิร์ฟแล้ว', cancelled: 'ยกเลิก' };
+
+let menu = null;
+let cart = {}; // itemId -> { qty, note }
+let activeCat = null;
+const KEY = 'orders_t' + table;
+const loadIds = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
+const saveIds = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a.slice(-20))); } catch {} };
+let orders = {}; // id -> order
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+  return j;
+}
+
+/* ---------------- menu ---------------- */
+async function loadMenu() {
+  menu = await api('/api/menu');
+  $('shop').textContent = menu.shopName;
+  $('tbl').textContent = 'โต๊ะ ' + table;
+  document.title = menu.shopName + ' · โต๊ะ ' + table;
+  if (!(table >= 1 && table <= menu.tableCount)) {
+    $('menu').innerHTML = '<p class="card">ไม่พบโต๊ะนี้ กรุณาสแกน QR ที่โต๊ะอีกครั้ง</p>';
+    return;
+  }
+  if (!menu.categories.some((c) => c.id === activeCat)) activeCat = menu.categories.length ? menu.categories[0].id : null;
+  renderMenu();
+}
+
+function renderMenu() {
+  $('chips').innerHTML = menu.categories
+    .map((c) => `<button class="chip ${c.id === activeCat ? 'on' : ''}" data-c="${esc(c.id)}">${esc(c.name)}</button>`)
+    .join('');
+  $('chips').querySelectorAll('.chip').forEach((b) => (b.onclick = () => {
+    activeCat = b.dataset.c; renderMenu();
+  }));
+  const items = menu.items.filter((i) => i.categoryId === activeCat);
+  $('menu').innerHTML = items.length
+    ? items.map(itemHtml).join('')
+    : '<p class="muted">ยังไม่มีเมนูในหมวดนี้</p>';
+  $('menu').querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => change(b.dataset.add, +1)));
+  $('menu').querySelectorAll('[data-sub]').forEach((b) => (b.onclick = () => change(b.dataset.sub, -1)));
+  renderCartBar();
+}
+
+function itemHtml(i) {
+  const q = cart[i.id] ? cart[i.id].qty : 0;
+  const ctrl = !i.available
+    ? '<span class="badge gray">หมด</span>'
+    : q
+      ? `<div class="qty"><button data-sub="${esc(i.id)}">−</button><b>${q}</b><button class="add" data-add="${esc(i.id)}">+</button></div>`
+      : `<div class="qty"><button class="add" data-add="${esc(i.id)}">+</button></div>`;
+  const imageSrc = i.image ? `/img/${esc(i.image)}` : (i.defaultImage ? esc(i.defaultImage) : '');
+  const imageScale = Number(i.imageScale) > 0 ? Number(i.imageScale) : 1;
+  const img = imageSrc ? `<span class="thumbbox"><img class="thumb" loading="lazy" decoding="async" src="${imageSrc}" alt="${esc(i.name)}" style="transform:scale(${imageScale})"></span>` : '';
+  return `<div class="card item ${i.available ? '' : 'out'}">${img}<div class="body"><div class="name">${esc(i.name)}</div><div class="price">${fmt(i.price)}</div></div>${ctrl}</div>`;
+}
+
+function change(id, d) {
+  const cur = cart[id] ? cart[id].qty : 0;
+  const n = Math.max(0, Math.min(20, cur + d));
+  if (n === 0) delete cart[id];
+  else cart[id] = { qty: n, note: cart[id] ? cart[id].note : '' };
+  renderMenu();
+  if ($('cartDlg').open) renderCart();
+}
+
+const cartLines = () => Object.entries(cart).map(([id, v]) => ({ item: menu.items.find((i) => i.id === id), ...v })).filter((l) => l.item);
+const cartSum = () => cartLines().reduce((a, l) => a + l.item.price * l.qty, 0);
+
+function renderCartBar() {
+  const n = cartLines().reduce((a, l) => a + l.qty, 0);
+  $('cartbar').classList.toggle('hidden', n === 0);
+  $('cartCount').textContent = `ตะกร้า (${n} รายการ)`;
+  $('cartTotal').textContent = fmt(cartSum());
+}
+
+function renderCart() {
+  const lines = cartLines();
+  $('cartRows').innerHTML = lines.map((l) => `
+    <div class="row" style="flex-wrap:wrap">
+      <div style="flex:1"><b>${esc(l.item.name)}</b><div class="muted">${fmt(l.item.price)}</div></div>
+      <div class="qty"><button data-sub="${esc(l.item.id)}">−</button><b>${l.qty}</b><button class="add" data-add="${esc(l.item.id)}">+</button></div>
+      <input class="note" data-note="${esc(l.item.id)}" maxlength="100" placeholder="หมายเหตุ (เช่น ไม่เผ็ด)" value="${esc(l.note || '')}">
+    </div>`).join('');
+  $('cartRows').querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => change(b.dataset.add, +1)));
+  $('cartRows').querySelectorAll('[data-sub]').forEach((b) => (b.onclick = () => {
+    change(b.dataset.sub, -1);
+    if (!Object.keys(cart).length) $('cartDlg').close();
+  }));
+  $('cartRows').querySelectorAll('[data-note]').forEach((inp) => (inp.oninput = () => {
+    if (cart[inp.dataset.note]) cart[inp.dataset.note].note = inp.value;
+  }));
+  $('cartSum').textContent = fmt(cartSum());
+}
+
+$('openCart').onclick = () => { renderCart(); $('cartDlg').showModal(); };
+$('closeCart').onclick = () => $('cartDlg').close();
+
+$('placeBtn').onclick = async () => {
+  const btn = $('placeBtn');
+  btn.disabled = true;
+  try {
+    const items = cartLines().map((l) => ({ itemId: l.item.id, qty: l.qty, note: l.note || '' }));
+    const o = await api('/api/orders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, items }),
+    });
+    cart = {};
+    saveIds([...loadIds(), o.id]);
+    orders[o.id] = o;
+    $('cartDlg').close();
+    renderMenu(); renderOrders();
+    toast(`สั่งแล้ว! ยอด ${fmt(o.total)} กรุณาชำระกับพนักงาน`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) {
+    toast(e.message);
+    loadMenu(); // เมนูอาจเปลี่ยน (หมด/ราคา) → รีเฟรช
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* ---------------- orders ---------------- */
+function renderOrders() {
+  const list = Object.values(orders).sort((a, b) => b.createdAt - a.createdAt);
+  $('orders').innerHTML = list.length ? '<h3 style="margin:14px 0 0">ออเดอร์ของโต๊ะนี้</h3>' + list.map(orderHtml).join('') : '';
+}
+
+function orderHtml(o) {
+  const st = o.status === 'cancelled' ? '<span class="badge gray">ยกเลิก</span>'
+    : `<span class="badge ${o.status === 'served' ? 'ok' : o.status === 'cooking' ? 'blue' : 'warn'}">${STATUS[o.status]}</span>`;
+  const pay = o.status === 'cancelled' ? ''
+    : o.paid ? '<span class="badge ok">ชำระแล้ว</span>'
+    : '<span class="badge bad">ยังไม่ชำระ</span>';
+  const btn = !o.paid && o.status !== 'cancelled'
+    ? `<div class="pay-instruction"><b>ยอดชำระ ${fmt(o.total)}</b><br><span class="muted">ขอ QR บัญชีร้านจากพนักงาน แล้วพิมพ์ยอดนี้ด้วยตัวเอง</span></div>`
+    : '';
+  const lines = o.items.map((i) => `${esc(i.name)} × ${i.qty}`).join(', ');
+  return `<div class="card order-card">
+    <div class="hd"><b>ออเดอร์ #${o.seq} · ${fmt(o.total)}</b><span>${st} ${pay}</span></div>
+    <div class="muted">${lines}</div>
+    <div style="margin-top:8px">${btn}</div>
+  </div>`;
+}
+
+async function pollOrders() {
+  let changed = false;
+  const ids = loadIds();
+  for (const id of ids) {
+    const prev = orders[id];
+    if (prev && prev.paid && (prev.status === 'served' || prev.status === 'cancelled')) continue; // จบแล้ว ไม่ต้องถามซ้ำ
+    try {
+      const o = await api('/api/orders/' + id);
+      if (!prev || prev.status !== o.status || prev.paid !== o.paid) changed = true;
+      orders[id] = o;
+    } catch (e) { /* ออเดอร์หายหรือเน็ตสะดุด: ข้าม */ }
+  }
+  if (changed) renderOrders();
+}
+
+/* ---------------- start ---------------- */
+(async function init() {
+  try {
+    await loadMenu();
+    await pollOrders();
+    renderOrders();
+    setInterval(pollOrders, 5000);
+    setInterval(() => { if (!$('cartDlg').open) loadMenu().catch(() => {}); }, 60000); // เมนู/ของหมดอัปเดตเอง
+  } catch (e) {
+    $('menu').innerHTML = '<p class="card">โหลดเมนูไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</p>';
+  }
+})();
+</script>
+</body>
+</html>
