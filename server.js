@@ -1,20 +1,17 @@
 'use strict';
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+const { createPersistence } = require('./persistence');
 
 const PORT = process.env.PORT || 3000;
 const STAFF_PIN = process.env.STAFF_PIN || '1234';
 const ADMIN_PIN = process.env.ADMIN_PIN || '5678';
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'data.json');
-
 const IMG_DIR = process.env.IMG_DIR || path.join(path.dirname(DATA_FILE), 'images');
-function removeImage(name) {
-  if (!name || !/^[a-f0-9]{10}\.jpg$/.test(name)) return;
-  try { fs.unlinkSync(path.join(IMG_DIR, name)); } catch (e) { /* ไม่มีไฟล์แล้ว ข้ามได้ */ }
-}
+const persistence = createPersistence({ dataFile: DATA_FILE, imageDir: IMG_DIR });
+const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ---------------------------------------------------------------- data
 function defaultData() {
@@ -58,9 +55,8 @@ function migrateOrder(o) {
   return o;
 }
 
-function loadData() {
+function normalizeData(raw) {
   try {
-    const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     const d = defaultData();
     const settings = { ...d.settings, ...(raw.settings || {}) };
     const hiddenDefaultCategories = new Set(['c1', 'c2', 'c3', 'c4']);
@@ -86,20 +82,12 @@ function loadData() {
       seq: raw.seq || d.seq,
     };
   } catch (e) {
-    const d = defaultData();
-    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-    fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2));
-    return d;
+    return defaultData();
   }
 }
 
-let data = loadData();
-
-function save() {
-  const tmp = DATA_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, DATA_FILE); // เขียนแบบ atomic กันไฟล์พังตอนไฟดับ
-}
+let data;
+const save = () => persistence.save(data);
 
 const uid = () => crypto.randomBytes(5).toString('hex');
 const bkkDate = (t = Date.now()) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -165,11 +153,16 @@ app.set('trust proxy', true);
 app.use(express.json({ limit: '20kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 // รูปเมนู (ชื่อไฟล์สุ่มและเปลี่ยนทุกครั้งที่อัปโหลด จึงแคชได้นาน)
-app.get('/img/:file', (req, res) => {
+app.get('/img/:file', asyncRoute(async (req, res) => {
   if (!/^[a-f0-9]{10}\.jpg$/.test(req.params.file)) return res.status(404).end();
-  res.set('Cache-Control', 'public, max-age=31536000, immutable');
-  res.sendFile(path.join(IMG_DIR, req.params.file), (err) => { if (err) res.status(404).end(); });
-});
+  try {
+    const image = await persistence.getImage(req.params.file);
+    res.set({ 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Type': 'image/jpeg' });
+    res.send(image);
+  } catch (error) {
+    res.status(404).end();
+  }
+}));
 
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
 app.get('/t/:table', page('customer.html'));
@@ -233,7 +226,7 @@ function publicOrder(o) {
   };
 }
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', asyncRoute(async (req, res) => {
   const table = parseInt(req.body.table, 10);
   if (!(table >= 1 && table <= data.settings.tableCount))
     return res.status(400).json({ error: 'เลขโต๊ะไม่ถูกต้อง' });
@@ -274,10 +267,10 @@ app.post('/api/orders', (req, res) => {
   };
   data.orders.push(order);
   lastOrderAt[table] = now;
-  save();
+  await save();
   broadcast('new', order.id);
   res.json(publicOrder(order));
-});
+}));
 
 app.get('/api/orders/:id', (req, res) => {
   const o = data.orders.find((x) => x.id === req.params.id);
@@ -303,7 +296,7 @@ staff.get('/orders', (req, res) => {
   res.json({ orders: list, requirePaymentBeforeKitchen: data.settings.requirePaymentBeforeKitchen, shopName: data.settings.shopName });
 });
 
-staff.post('/orders/:id/status', (req, res) => {
+staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
   const o = data.orders.find((x) => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: 'not found' });
   const st = req.body.status;
@@ -318,15 +311,15 @@ staff.post('/orders/:id/status', (req, res) => {
   if (st === 'cancelled' && o.status !== 'cancelled') logEvent('cancel', o.id, '');
   o.status = st;
   o.updatedAt = Date.now();
-  save();
+  await save();
   broadcast('status', o.id);
   res.json(publicOrder(o));
-});
+}));
 
 // ---- รับเงิน (บันทึกวิธีจ่ายและเวลา) / ยกเลิกการรับเงิน
 const METHODS = ['promptpay', 'cash', 'other'];
 const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
-staff.post('/orders/:id/paid', (req, res) => {
+staff.post('/orders/:id/paid', asyncRoute(async (req, res) => {
   const o = data.orders.find((x) => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: 'not found' });
   if (req.body.paid) {
@@ -343,13 +336,13 @@ staff.post('/orders/:id/paid', (req, res) => {
     o.paid = false; delete o.paymentMethod; delete o.paidAt;
   }
   o.updatedAt = Date.now();
-  save();
+  await save();
   broadcast('paid', o.id);
   res.json(publicOrder(o));
-});
+}));
 
 // ---- คืนเงิน (บันทึกเป็นรายการ ไม่ซ่อนในสถานะยกเลิก)
-staff.post('/orders/:id/refund', (req, res) => {
+staff.post('/orders/:id/refund', asyncRoute(async (req, res) => {
   const o = data.orders.find((x) => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: 'not found' });
   if (!o.paid) return res.status(409).json({ error: 'ออเดอร์นี้ยังไม่ได้รับเงิน คืนเงินไม่ได้' });
@@ -364,10 +357,10 @@ staff.post('/orders/:id/refund', (req, res) => {
   data.refunds.push({ id: uid(), orderId: o.id, amountSatang, method, reason, at: Date.now() });
   logEvent('refund', o.id, `${baht(amountSatang)} ${method}`);
   o.updatedAt = Date.now();
-  save();
+  await save();
   broadcast('paid', o.id);
   res.json(publicOrder(o));
-});
+}));
 
 // ---------------------------------------------------------------- บัญชี / รายงาน
 const isDate = (s) => {
@@ -413,7 +406,7 @@ staff.get('/report', requireAdmin, (req, res) => {
   res.json(dayReport(date));
 });
 
-staff.post('/close', requireAdmin, (req, res) => {
+staff.post('/close', requireAdmin, asyncRoute(async (req, res) => {
   const date = req.body.date;
   if (!isDate(date)) return res.status(400).json({ error: 'วันที่ไม่ถูกต้อง' });
   if (date > bkkDate()) return res.status(400).json({ error: 'ปิดร้านล่วงหน้าไม่ได้' });
@@ -426,9 +419,9 @@ staff.post('/close', requireAdmin, (req, res) => {
     history: prev ? [...(prev.history || []), { bankTotalSatang: prev.bankTotalSatang, countedCashSatang: prev.countedCashSatang, note: prev.note, closedAt: prev.closedAt }] : [],
   };
   logEvent(prev ? 'close-edit' : 'close', null, date); // แก้ผลปิดร้านเก่าได้ แต่เก็บประวัติไว้เสมอ
-  save();
+  await save();
   res.json(dayReport(date));
-});
+}));
 
 function readRange(req, res) {
   const from = req.query.from, to = req.query.to;
@@ -475,7 +468,7 @@ const bkkTime = (t) => new Date(t).toLocaleString('sv-SE', { timeZone: 'Asia/Ban
 const orderNo = (o) => `${bkkDate(o.createdAt)}-${o.seq}`;
 const STATUS_TH = { new: 'รอรับออเดอร์', cooking: 'กำลังทำ', served: 'เสิร์ฟแล้ว', cancelled: 'ยกเลิก' };
 
-staff.get('/export/:kind', requireAdmin, (req, res) => {
+staff.get('/export/:kind', requireAdmin, asyncRoute(async (req, res) => {
   const r = readRange(req, res); if (!r) return;
   const kind = req.params.kind;
   // ออเดอร์ที่นับเข้าช่วง = วันที่รับเงิน (ถ้ายังไม่จ่ายใช้วันที่สั่ง)
@@ -497,11 +490,11 @@ staff.get('/export/:kind', requireAdmin, (req, res) => {
     });
   } else return res.status(404).json({ error: 'not found' });
   logEvent('export', null, `${kind} ${r.from}..${r.to}`);
-  save();
+  await save();
   const body = '﻿' + [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
   res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${kind}_${r.from}_${r.to}.csv"` });
   res.send(body);
-});
+}));
 
 // สรุปวันนี้ (ใช้นิยามเดียวกับรายงานปิดร้าน จะได้ตัวเลขตรงกันทุกหน้า)
 staff.get('/summary', requireAdmin, (req, res) => res.json(dayReport(bkkDate())));
@@ -514,7 +507,7 @@ staff.get('/config', requireAdmin, (req, res) => {
   });
 });
 
-staff.put('/settings', requireAdmin, (req, res) => {
+staff.put('/settings', requireAdmin, asyncRoute(async (req, res) => {
   const b = req.body || {};
   const s = data.settings;
   if (b.shopName !== undefined) {
@@ -528,19 +521,19 @@ staff.put('/settings', requireAdmin, (req, res) => {
     s.tableCount = v;
   }
   if (b.requirePaymentBeforeKitchen !== undefined) s.requirePaymentBeforeKitchen = !!b.requirePaymentBeforeKitchen;
-  save();
+  await save();
   res.json(s);
-});
+}));
 
-staff.post('/categories', requireAdmin, (req, res) => {
+staff.post('/categories', requireAdmin, asyncRoute(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name || name.length > 40) return res.status(400).json({ error: 'ชื่อหมวดไม่ถูกต้อง' });
   const c = { id: uid(), name, visible: true };
   data.categories.push(c);
-  save();
+  await save();
   res.json(c);
-});
-staff.put('/categories/:id', requireAdmin, (req, res) => {
+}));
+staff.put('/categories/:id', requireAdmin, asyncRoute(async (req, res) => {
   const c = data.categories.find((x) => x.id === req.params.id);
   if (!c) return res.status(404).json({ error: 'not found' });
   if (req.body.name !== undefined) {
@@ -549,16 +542,16 @@ staff.put('/categories/:id', requireAdmin, (req, res) => {
     c.name = name;
   }
   if (req.body.visible !== undefined) c.visible = !!req.body.visible;
-  save();
+  await save();
   res.json(c);
-});
-staff.delete('/categories/:id', requireAdmin, (req, res) => {
+}));
+staff.delete('/categories/:id', requireAdmin, asyncRoute(async (req, res) => {
   if (data.items.some((i) => i.categoryId === req.params.id))
     return res.status(409).json({ error: 'ลบเมนูในหมวดนี้ออกก่อน' });
   data.categories = data.categories.filter((c) => c.id !== req.params.id);
-  save();
+  await save();
   res.json({ ok: true });
-});
+}));
 
 function readItem(b) {
   const name = String(b.name || '').trim();
@@ -568,56 +561,63 @@ function readItem(b) {
   if (!data.categories.some((c) => c.id === b.categoryId)) return { error: 'ไม่พบหมวด' };
   return { value: { name, price: Math.round(price * 100) / 100, categoryId: b.categoryId, available: b.available !== false } };
 }
-staff.post('/items', requireAdmin, (req, res) => {
+staff.post('/items', requireAdmin, asyncRoute(async (req, res) => {
   const r = readItem(req.body);
   if (r.error) return res.status(400).json({ error: r.error });
   const it = { id: uid(), ...r.value };
   data.items.push(it);
-  save();
+  await save();
   res.json(it);
-});
-staff.put('/items/:id', requireAdmin, (req, res) => {
+}));
+staff.put('/items/:id', requireAdmin, asyncRoute(async (req, res) => {
   const it = data.items.find((x) => x.id === req.params.id);
   if (!it) return res.status(404).json({ error: 'not found' });
   const r = readItem({ ...it, ...req.body });
   if (r.error) return res.status(400).json({ error: r.error });
   Object.assign(it, r.value);
-  save();
+  await save();
   res.json(it);
-});
-staff.delete('/items/:id', requireAdmin, (req, res) => {
+}));
+staff.delete('/items/:id', requireAdmin, asyncRoute(async (req, res) => {
   const it = data.items.find((i) => i.id === req.params.id);
-  if (it) removeImage(it.image);
   data.items = data.items.filter((i) => i.id !== req.params.id);
-  save();
+  await save();
+  if (it && it.image) persistence.removeImage(it.image).catch(console.error);
   res.json({ ok: true });
-});
+}));
 
 // ---- รูปเมนู: เบราว์เซอร์ย่อรูปเป็น JPEG ก่อนส่ง เซิร์ฟเวอร์ตรวจซ้ำทุกอย่าง ไม่เชื่อฝั่งเบราว์เซอร์
 const MAX_IMG_BYTES = 600 * 1024;
 const isJpeg = (b) => b.length > 4 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
-staff.put('/items/:id/image', requireAdmin, express.raw({ type: 'image/jpeg', limit: MAX_IMG_BYTES + 1 }), (req, res) => {
+staff.put('/items/:id/image', requireAdmin, express.raw({ type: 'image/jpeg', limit: MAX_IMG_BYTES + 1 }), asyncRoute(async (req, res) => {
   const it = data.items.find((x) => x.id === req.params.id);
   if (!it) return res.status(404).json({ error: 'not found' });
   const buf = req.body;
   if (!Buffer.isBuffer(buf) || !isJpeg(buf)) return res.status(400).json({ error: 'ไฟล์ต้องเป็นรูป JPEG' });
   if (buf.length > MAX_IMG_BYTES) return res.status(413).json({ error: 'รูปใหญ่เกินไป (ไม่เกิน 600KB)' });
-  fs.mkdirSync(IMG_DIR, { recursive: true });
   const name = `${uid()}.jpg`; // ชื่อใหม่ทุกครั้ง เบราว์เซอร์จึงไม่ค้างรูปเก่า
-  fs.writeFileSync(path.join(IMG_DIR, name), buf);
-  removeImage(it.image);
+  const previous = it.image;
+  await persistence.putImage(name, buf);
   it.image = name;
-  save();
+  try {
+    await save();
+  } catch (error) {
+    if (previous) it.image = previous; else delete it.image;
+    persistence.removeImage(name).catch(console.error);
+    throw error;
+  }
+  if (previous) persistence.removeImage(previous).catch(console.error);
   res.json(it);
-});
-staff.delete('/items/:id/image', requireAdmin, (req, res) => {
+}));
+staff.delete('/items/:id/image', requireAdmin, asyncRoute(async (req, res) => {
   const it = data.items.find((x) => x.id === req.params.id);
   if (!it) return res.status(404).json({ error: 'not found' });
-  removeImage(it.image);
+  const previous = it.image;
   delete it.image;
-  save();
+  await save();
+  if (previous) persistence.removeImage(previous).catch(console.error);
   res.json(it);
-});
+}));
 
 // QR ประจำโต๊ะ
 staff.get('/tableqr/:n', requireAdmin, async (req, res) => {
@@ -637,10 +637,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'เกิดข้อผิดพลาดในระบบ' });
 });
 
-app.listen(PORT, () => {
-  console.log(`เปิดใช้งานที่ http://localhost:${PORT}`);
-  console.log(`  รับออเดอร์: /kitchen    หน้าแอดมิน: /admin    หน้าลูกค้า: /t/1`);
-  if (STAFF_PIN === '1234') console.log('⚠️  ยังใช้ PIN เริ่มต้น 1234 — ตั้งค่าใหม่ด้วย STAFF_PIN=xxxx ก่อนใช้งานจริง');
-  if (ADMIN_PIN === '5678') console.log('⚠️  ยังใช้ PIN แอดมินเริ่มต้น 5678 — ตั้งค่าใหม่ด้วย ADMIN_PIN=xxxx');
-  if (STAFF_PIN === ADMIN_PIN) console.log('⚠️  STAFF_PIN และ ADMIN_PIN ต้องไม่ซ้ำกันก่อนใช้งานจริง');
+async function start() {
+  data = normalizeData(await persistence.load(defaultData()));
+  await save(); // บันทึก migration และสร้าง singleton row ในการเปิดครั้งแรก
+  app.listen(PORT, () => {
+    console.log(`เปิดใช้งานที่ http://localhost:${PORT}`);
+    console.log(`  รับออเดอร์: /kitchen    หน้าแอดมิน: /admin    หน้าลูกค้า: /t/1`);
+    console.log(`  ที่เก็บข้อมูล: ${persistence.remote ? 'Supabase' : DATA_FILE}`);
+    if (STAFF_PIN === '1234') console.log('⚠️  ยังใช้ PIN เริ่มต้น 1234 — ตั้งค่าใหม่ด้วย STAFF_PIN=xxxx ก่อนใช้งานจริง');
+    if (ADMIN_PIN === '5678') console.log('⚠️  ยังใช้ PIN แอดมินเริ่มต้น 5678 — ตั้งค่าใหม่ด้วย ADMIN_PIN=xxxx');
+    if (STAFF_PIN === ADMIN_PIN) console.log('⚠️  STAFF_PIN และ ADMIN_PIN ต้องไม่ซ้ำกันก่อนใช้งานจริง');
+  });
+}
+
+start().catch((error) => {
+  console.error('เริ่มระบบไม่สำเร็จ:', error);
+  process.exit(1);
 });
