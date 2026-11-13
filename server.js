@@ -20,6 +20,7 @@ function defaultData() {
       shopName: 'ร้านของฉัน',
       tableCount: 10,
       requirePaymentBeforeKitchen: false,
+      pickupEnabled: true,
     },
     categories: [
       { id: 'c1', name: 'กาแฟ', visible: false },
@@ -46,12 +47,14 @@ function defaultData() {
     closes: {}, // ผลปิดร้านรายวัน key = YYYY-MM-DD
     log: [], // ใครทำอะไรเมื่อไร (เงิน/ส่งออก/ปิดร้าน)
     seq: { date: '', n: 0 },
+    pickupSeq: { date: '', n: 0 },
   };
 }
 
 // ออเดอร์เก่าที่จ่ายแล้วแต่ยังไม่มีวิธีจ่าย/เวลารับเงิน (ก่อนมีฟีเจอร์บัญชี)
 function migrateOrder(o) {
   if (o.paid && !o.paidAt) { o.paidAt = o.updatedAt || o.createdAt; o.paymentMethod = o.paymentMethod || 'other'; }
+  if (!o.orderType) o.orderType = 'table';
   return o;
 }
 
@@ -80,6 +83,7 @@ function normalizeData(raw) {
       closes: raw.closes || {},
       log: raw.log || [],
       seq: raw.seq || d.seq,
+      pickupSeq: raw.pickupSeq || d.pickupSeq,
     };
   } catch (e) {
     return defaultData();
@@ -166,6 +170,7 @@ app.get('/img/:file', asyncRoute(async (req, res) => {
 
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
 app.get('/t/:table', page('customer.html'));
+app.get('/pickup', page('customer.html'));
 app.get('/kitchen', page('kitchen.html'));
 app.get('/admin', page('admin.html'));
 app.get('/login', page('login.html'));
@@ -209,6 +214,7 @@ app.get('/api/menu', (req, res) => {
   res.json({
     shopName: s.shopName,
     tableCount: s.tableCount,
+    pickupEnabled: s.pickupEnabled !== false,
     categories,
     items: data.items.filter((i) => visibleCategoryIds.has(i.categoryId)),
   });
@@ -218,7 +224,8 @@ app.get('/api/menu', (req, res) => {
 const lastOrderAt = {};
 function publicOrder(o) {
   return {
-    id: o.id, seq: o.seq, table: o.table, items: o.items,
+    id: o.id, seq: o.seq, orderType: o.orderType || 'table', table: o.table,
+    customerName: o.customerName || null, queueNo: o.queueNo || null, items: o.items,
     total: baht(o.totalSatang), status: o.status, paid: o.paid, createdAt: o.createdAt,
     paymentMethod: o.paid ? o.paymentMethod || 'other' : null,
     paidAt: o.paid ? o.paidAt || null : null,
@@ -227,23 +234,34 @@ function publicOrder(o) {
 }
 
 app.post('/api/orders', asyncRoute(async (req, res) => {
-  const table = parseInt(req.body.table, 10);
-  if (!(table >= 1 && table <= data.settings.tableCount))
+  const orderType = req.body.orderType === 'pickup' ? 'pickup' : 'table';
+  const table = orderType === 'table' ? parseInt(req.body.table, 10) : null;
+  let customerName = null;
+  if (orderType === 'table' && !(table >= 1 && table <= data.settings.tableCount))
     return res.status(400).json({ error: 'เลขโต๊ะไม่ถูกต้อง' });
+  if (orderType === 'pickup') {
+    if (data.settings.pickupEnabled === false) return res.status(409).json({ error: 'ร้านปิดรับออเดอร์รับเองชั่วคราว' });
+    customerName = String(req.body.customerName || '').trim().replace(/\s+/g, ' ');
+    if (!customerName || customerName.length > 30) return res.status(400).json({ error: 'กรุณากรอกชื่อสำหรับเรียกคิว (ไม่เกิน 30 ตัวอักษร)' });
+  }
 
   const lines = Array.isArray(req.body.items) ? req.body.items : [];
   if (!lines.length || lines.length > 30) return res.status(400).json({ error: 'ตะกร้าว่างหรือมีรายการมากเกินไป' });
 
   const now = Date.now();
-  if (lastOrderAt[table] && now - lastOrderAt[table] < 3000)
+  // ลูกค้าหลายคนอาจใช้ Wi-Fi ร้านและมี IP เดียวกัน จึงแยกคีย์รับเองด้วยชื่อเรียกคิวด้วย
+  const rateKey = orderType === 'table' ? `table:${table}` : `pickup:${req.ip}:${customerName.toLowerCase()}`;
+  if (lastOrderAt[rateKey] && now - lastOrderAt[rateKey] < 3000)
     return res.status(429).json({ error: 'กดซ้ำเร็วเกินไป รอสักครู่' });
 
   // กันคนนอกสั่งป่วน: ถ้าโต๊ะนี้มีรอบที่ยังไม่จ่ายค้างหลายรอบ ให้จ่ายก่อน
-  const unpaid = data.orders.filter(
-    (o) => o.table === table && !o.paid && o.status !== 'cancelled' && now - o.createdAt < 6 * 3600 * 1000
-  ).length;
-  if (unpaid >= 3)
-    return res.status(429).json({ error: 'โต๊ะนี้มีรอบที่ยังไม่ชำระหลายรอบ กรุณาชำระหรือเรียกพนักงาน' });
+  if (orderType === 'table') {
+    const unpaid = data.orders.filter(
+      (o) => o.table === table && !o.paid && o.status !== 'cancelled' && now - o.createdAt < 6 * 3600 * 1000
+    ).length;
+    if (unpaid >= 3)
+      return res.status(429).json({ error: 'โต๊ะนี้มีรอบที่ยังไม่ชำระหลายรอบ กรุณาชำระหรือเรียกพนักงาน' });
+  }
 
   const items = [];
   let totalSatang = 0;
@@ -260,13 +278,19 @@ app.post('/api/orders', asyncRoute(async (req, res) => {
   const today = bkkDate();
   if (data.seq.date !== today) data.seq = { date: today, n: 0 };
   data.seq.n += 1;
+  let queueNo = null;
+  if (orderType === 'pickup') {
+    if (data.pickupSeq.date !== today) data.pickupSeq = { date: today, n: 0 };
+    data.pickupSeq.n += 1;
+    queueNo = `A${String(data.pickupSeq.n).padStart(3, '0')}`;
+  }
 
   const order = {
-    id: uid(), seq: data.seq.n, table, items, totalSatang,
+    id: uid(), seq: data.seq.n, orderType, table, customerName, queueNo, items, totalSatang,
     status: 'new', paid: false, createdAt: now, updatedAt: now,
   };
   data.orders.push(order);
-  lastOrderAt[table] = now;
+  lastOrderAt[rateKey] = now;
   await save();
   broadcast('new', order.id);
   res.json(publicOrder(order));
@@ -300,7 +324,9 @@ staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
   const o = data.orders.find((x) => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: 'not found' });
   const st = req.body.status;
-  if (!['new', 'cooking', 'served', 'cancelled'].includes(st)) return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
+  if (!['new', 'cooking', 'ready', 'served', 'cancelled'].includes(st)) return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
+  if (st === 'ready' && (o.orderType || 'table') !== 'pickup')
+    return res.status(400).json({ error: 'สถานะพร้อมรับใช้กับออเดอร์รับเองเท่านั้น' });
   if (st === 'cooking' && data.settings.requirePaymentBeforeKitchen && !o.paid)
     return res.status(409).json({ error: 'ตั้งค่าไว้ให้ชำระก่อนเริ่มทำ' });
   // เงินต้องตามรอยได้: ออเดอร์ที่รับเงินแล้วจะยกเลิกได้ก็ต่อเมื่อบันทึกการคืนเงินครบแล้ว
@@ -385,7 +411,11 @@ function dayReport(date) {
   const cancelledUnpaid = data.orders.filter((o) => bkkDate(o.createdAt) === date && o.status === 'cancelled' && !o.paid);
   const openUnpaid = data.orders
     .filter((o) => bkkDate(o.createdAt) === date && !o.paid && o.status !== 'cancelled')
-    .map((o) => ({ seq: o.seq, table: o.table, total: baht(o.totalSatang), status: o.status, createdAt: o.createdAt }));
+    .map((o) => ({
+      seq: o.seq, orderType: o.orderType || 'table', table: o.table,
+      customerName: o.customerName || null, queueNo: o.queueNo || null,
+      total: baht(o.totalSatang), status: o.status, createdAt: o.createdAt,
+    }));
   const c = data.closes[date];
   return {
     date, methods: METHODS.map((m) => ({
@@ -466,7 +496,7 @@ function csvCell(v) {
 }
 const bkkTime = (t) => new Date(t).toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' });
 const orderNo = (o) => `${bkkDate(o.createdAt)}-${o.seq}`;
-const STATUS_TH = { new: 'รอรับออเดอร์', cooking: 'กำลังทำ', served: 'เสิร์ฟแล้ว', cancelled: 'ยกเลิก' };
+const STATUS_TH = { new: 'รอรับออเดอร์', cooking: 'กำลังจัดเตรียม', ready: 'พร้อมรับ', served: 'ส่งมอบแล้ว', cancelled: 'ยกเลิก' };
 
 staff.get('/export/:kind', requireAdmin, asyncRoute(async (req, res) => {
   const r = readRange(req, res); if (!r) return;
@@ -476,8 +506,9 @@ staff.get('/export/:kind', requireAdmin, asyncRoute(async (req, res) => {
     .sort((a, b) => a.createdAt - b.createdAt);
   let header, rows;
   if (kind === 'orders') {
-    header = ['เลขที่ออเดอร์', 'วันเวลาที่สั่ง', 'โต๊ะ', 'สถานะ', 'ยอด(บาท)', 'จ่ายแล้ว', 'วิธีจ่าย', 'วันเวลารับเงิน', 'คืนเงินรวม(บาท)'];
-    rows = orders.map((o) => [orderNo(o), bkkTime(o.createdAt), o.table, STATUS_TH[o.status] || o.status, baht(o.totalSatang).toFixed(2),
+    header = ['เลขที่ออเดอร์', 'วันเวลาที่สั่ง', 'ประเภท', 'โต๊ะ/คิว', 'ชื่อลูกค้า', 'สถานะ', 'ยอด(บาท)', 'จ่ายแล้ว', 'วิธีจ่าย', 'วันเวลารับเงิน', 'คืนเงินรวม(บาท)'];
+    rows = orders.map((o) => [orderNo(o), bkkTime(o.createdAt), (o.orderType || 'table') === 'pickup' ? 'รับเอง' : 'โต๊ะ',
+      (o.orderType || 'table') === 'pickup' ? o.queueNo || '' : o.table, o.customerName || '', STATUS_TH[o.status] || o.status, baht(o.totalSatang).toFixed(2),
       o.paid ? 'ใช่' : 'ไม่', o.paid ? METHOD_TH[methodOf(o.paymentMethod)] : '', o.paid && o.paidAt ? bkkTime(o.paidAt) : '', baht(refundedSatang(o.id)).toFixed(2)]);
   } else if (kind === 'order_items') {
     header = ['เลขที่ออเดอร์', 'สถานะออเดอร์', 'ชื่อเมนู', 'ราคาต่อหน่วย(บาท)', 'จำนวน', 'รวม(บาท)', 'หมายเหตุ'];
@@ -521,6 +552,7 @@ staff.put('/settings', requireAdmin, asyncRoute(async (req, res) => {
     s.tableCount = v;
   }
   if (b.requirePaymentBeforeKitchen !== undefined) s.requirePaymentBeforeKitchen = !!b.requirePaymentBeforeKitchen;
+  if (b.pickupEnabled !== undefined) s.pickupEnabled = !!b.pickupEnabled;
   await save();
   res.json(s);
 }));
@@ -624,6 +656,10 @@ staff.get('/tableqr/:n', requireAdmin, async (req, res) => {
   const n = parseInt(req.params.n, 10);
   if (!(n >= 1 && n <= data.settings.tableCount)) return res.status(400).end();
   const buf = await QRCode.toBuffer(`${baseUrl(req)}/t/${n}`, { width: 600, margin: 2 });
+  res.type('png').send(buf);
+});
+staff.get('/pickupqr', requireAdmin, async (req, res) => {
+  const buf = await QRCode.toBuffer(`${baseUrl(req)}/pickup`, { width: 600, margin: 2 });
   res.type('png').send(buf);
 });
 

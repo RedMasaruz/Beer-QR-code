@@ -26,24 +26,35 @@
 <dialog id="cartDlg"><div class="dlg">
   <h2>ตะกร้าของคุณ</h2>
   <div id="cartRows"></div>
+  <div id="pickupFields" class="pickup-fields hidden">
+    <label><b>ชื่อสำหรับเรียกคิว</b><input type="text" id="customerName" maxlength="30" placeholder="เช่น คุณเอ" autocomplete="name"></label>
+    <div class="muted">ระบบจะออกเลขคิวให้หลังยืนยันออเดอร์</div>
+  </div>
   <div class="total"><span>รวม</span><span id="cartSum"></span></div>
   <div class="inline" style="justify-content:flex-end">
     <button class="btn ghost" id="closeCart">กลับไปเลือกต่อ</button>
-    <button class="btn" id="placeBtn">สั่งอาหาร</button>
+    <button class="btn" id="placeBtn">ยืนยันออเดอร์</button>
   </div>
 </div></dialog>
 
 <script>
-const table = parseInt(location.pathname.split('/')[2], 10);
+const isPickup = location.pathname.replace(/\/$/, '') === '/pickup';
+const table = isPickup ? null : parseInt(location.pathname.split('/')[2], 10);
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-const STATUS = { new: 'รอร้านรับออเดอร์', cooking: 'กำลังทำ', served: 'เสิร์ฟแล้ว', cancelled: 'ยกเลิก' };
+const statusText = (o) => ({
+  new: 'รอร้านรับออเดอร์',
+  cooking: isPickup ? 'กำลังจัดเตรียม' : 'กำลังนำไปเสิร์ฟ',
+  ready: 'พร้อมรับที่เคาน์เตอร์',
+  served: isPickup ? 'รับสินค้าแล้ว' : 'ส่งแล้ว',
+  cancelled: 'ยกเลิก',
+}[o.status] || o.status);
 
 let menu = null;
 let cart = {}; // itemId -> { qty, note }
 let activeCat = null;
-const KEY = 'orders_t' + table;
+const KEY = isPickup ? 'orders_pickup' : 'orders_t' + table;
 const loadIds = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const saveIds = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a.slice(-20))); } catch {} };
 let orders = {}; // id -> order
@@ -66,9 +77,15 @@ async function api(url, opts) {
 async function loadMenu() {
   menu = await api('/api/menu');
   $('shop').textContent = menu.shopName;
-  $('tbl').textContent = 'โต๊ะ ' + table;
-  document.title = menu.shopName + ' · โต๊ะ ' + table;
-  if (!(table >= 1 && table <= menu.tableCount)) {
+  $('tbl').textContent = isPickup ? 'สั่งรับเอง' : 'โต๊ะ ' + table;
+  document.title = menu.shopName + ' · ' + (isPickup ? 'สั่งรับเอง' : 'โต๊ะ ' + table);
+  $('pickupFields').classList.toggle('hidden', !isPickup);
+  $('placeBtn').textContent = isPickup ? 'ยืนยันสั่งรับเอง' : 'ยืนยันออเดอร์';
+  if (isPickup && !menu.pickupEnabled) {
+    $('menu').innerHTML = '<p class="card">ร้านปิดรับออเดอร์รับเองชั่วคราว กรุณาสั่งกับพนักงานที่เคาน์เตอร์</p>';
+    return;
+  }
+  if (!isPickup && !(table >= 1 && table <= menu.tableCount)) {
     $('menu').innerHTML = '<p class="card">ไม่พบโต๊ะนี้ กรุณาสแกน QR ที่โต๊ะอีกครั้ง</p>';
     return;
   }
@@ -143,7 +160,13 @@ function renderCart() {
   $('cartSum').textContent = fmt(cartSum());
 }
 
-$('openCart').onclick = () => { renderCart(); $('cartDlg').showModal(); };
+$('openCart').onclick = () => {
+  renderCart();
+  if (isPickup && !$('customerName').value) {
+    try { $('customerName').value = localStorage.getItem('pickup_name') || ''; } catch {}
+  }
+  $('cartDlg').showModal();
+};
 $('closeCart').onclick = () => $('cartDlg').close();
 
 $('placeBtn').onclick = async () => {
@@ -151,16 +174,19 @@ $('placeBtn').onclick = async () => {
   btn.disabled = true;
   try {
     const items = cartLines().map((l) => ({ itemId: l.item.id, qty: l.qty, note: l.note || '' }));
+    const customerName = isPickup ? $('customerName').value.trim() : null;
+    if (isPickup && !customerName) throw new Error('กรุณากรอกชื่อสำหรับเรียกคิว');
     const o = await api('/api/orders', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ table, items }),
+      body: JSON.stringify(isPickup ? { orderType: 'pickup', customerName, items } : { orderType: 'table', table, items }),
     });
+    if (isPickup) { try { localStorage.setItem('pickup_name', customerName); } catch {} }
     cart = {};
     saveIds([...loadIds(), o.id]);
     orders[o.id] = o;
     $('cartDlg').close();
     renderMenu(); renderOrders();
-    toast(`สั่งแล้ว! ยอด ${fmt(o.total)} กรุณาชำระกับพนักงาน`);
+    toast(isPickup ? `รับออเดอร์แล้ว · คิว ${o.queueNo} · ยอด ${fmt(o.total)}` : `สั่งแล้ว! ยอด ${fmt(o.total)} กรุณาชำระกับพนักงาน`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
     toast(e.message);
@@ -173,21 +199,22 @@ $('placeBtn').onclick = async () => {
 /* ---------------- orders ---------------- */
 function renderOrders() {
   const list = Object.values(orders).sort((a, b) => b.createdAt - a.createdAt);
-  $('orders').innerHTML = list.length ? '<h3 style="margin:14px 0 0">ออเดอร์ของโต๊ะนี้</h3>' + list.map(orderHtml).join('') : '';
+  $('orders').innerHTML = list.length ? `<h3 style="margin:14px 0 0">${isPickup ? 'ออเดอร์รับเองของคุณ' : 'ออเดอร์ของโต๊ะนี้'}</h3>` + list.map(orderHtml).join('') : '';
 }
 
 function orderHtml(o) {
   const st = o.status === 'cancelled' ? '<span class="badge gray">ยกเลิก</span>'
-    : `<span class="badge ${o.status === 'served' ? 'ok' : o.status === 'cooking' ? 'blue' : 'warn'}">${STATUS[o.status]}</span>`;
+    : `<span class="badge ${o.status === 'served' || o.status === 'ready' ? 'ok' : o.status === 'cooking' ? 'blue' : 'warn'}">${statusText(o)}</span>`;
   const pay = o.status === 'cancelled' ? ''
     : o.paid ? '<span class="badge ok">ชำระแล้ว</span>'
     : '<span class="badge bad">ยังไม่ชำระ</span>';
   const btn = !o.paid && o.status !== 'cancelled'
-    ? `<div class="pay-instruction"><b>ยอดชำระ ${fmt(o.total)}</b><br><span class="muted">ขอ QR บัญชีร้านจากพนักงาน แล้วพิมพ์ยอดนี้ด้วยตัวเอง</span></div>`
+    ? `<div class="pay-instruction"><b>ยอดชำระ ${fmt(o.total)}</b><br><span class="muted">สแกน QR บัญชีร้านที่เคาน์เตอร์หรือขอจากพนักงาน แล้วพิมพ์ยอดนี้ด้วยตัวเอง</span></div>`
     : '';
   const lines = o.items.map((i) => `${esc(i.name)} × ${i.qty}`).join(', ');
+  const orderLabel = isPickup ? `คิว ${esc(o.queueNo || '-')} · ${esc(o.customerName || '')}` : `ออเดอร์ #${o.seq}`;
   return `<div class="card order-card">
-    <div class="hd"><b>ออเดอร์ #${o.seq} · ${fmt(o.total)}</b><span>${st} ${pay}</span></div>
+    <div class="hd"><b>${orderLabel} · ${fmt(o.total)}</b><span>${st} ${pay}</span></div>
     <div class="muted">${lines}</div>
     <div style="margin-top:8px">${btn}</div>
   </div>`;

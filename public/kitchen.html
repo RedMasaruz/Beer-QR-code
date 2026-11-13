@@ -99,20 +99,20 @@ setInterval(() => load().catch(() => {}), 10000); // สำรอง เผื�
 
 /* ---------- แสดงผล ---------- */
 const TABS = [
-  ['active', 'ต้องทำ'],
+  ['active', 'กำลังดำเนินการ'],
   ['unpaid', 'รอรับเงิน'],
   ['done', 'เสร็จแล้ว'],
 ];
 function filtered() {
   const live = orders.filter((o) => o.status !== 'cancelled');
-  if (tab === 'active') return live.filter((o) => o.status === 'new' || o.status === 'cooking').sort((a, b) => a.createdAt - b.createdAt);
+  if (tab === 'active') return live.filter((o) => o.status === 'new' || o.status === 'cooking' || o.status === 'ready').sort((a, b) => a.createdAt - b.createdAt);
   if (tab === 'unpaid') return live.filter((o) => !o.paid).sort((a, b) => a.createdAt - b.createdAt);
   return orders.filter((o) => (o.status === 'served' && o.paid) || o.status === 'cancelled').sort((a, b) => b.createdAt - a.createdAt);
 }
 
 function render() {
   const counts = {
-    active: orders.filter((o) => o.status === 'new' || o.status === 'cooking').length,
+    active: orders.filter((o) => o.status === 'new' || o.status === 'cooking' || o.status === 'ready').length,
     unpaid: orders.filter((o) => !o.paid && o.status !== 'cancelled').length,
     done: 0,
   };
@@ -128,7 +128,7 @@ function render() {
 
 function card(o) {
   const mins = Math.floor((Date.now() - o.createdAt) / 60000);
-  const late = (o.status === 'new' || o.status === 'cooking') && mins >= 10;
+  const late = (o.status === 'new' || o.status === 'cooking' || o.status === 'ready') && mins >= 10;
   const items = o.items.map((i) => `<li><b>${i.qty} ×</b> ${esc(i.name)}${i.note ? `<small>📝 ${esc(i.note)}</small>` : ''}</li>`).join('');
   const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
   const refundBadge = o.refunded > 0 ? ` <span class="badge warn">คืนแล้ว ${fmt(o.refunded)}</span>` : '';
@@ -136,10 +136,14 @@ function card(o) {
     ? `<span class="badge ok">จ่ายแล้ว · ${METHOD_TH[o.paymentMethod] || 'อื่น ๆ'}</span>${refundBadge}`
     : '<span class="badge bad">ยังไม่จ่าย</span>';
   const waitingPay = requirePay && !o.paid && o.status === 'new';
+  const pickup = o.orderType === 'pickup';
 
   let main = '';
-  if (o.status === 'new') main = `<button class="btn" data-act="cooking" data-id="${o.id}" ${waitingPay ? 'disabled' : ''}>${waitingPay ? 'รอรับเงินก่อน' : 'เริ่มทำ'}</button>`;
-  else if (o.status === 'cooking') main = `<button class="btn ok" data-act="served" data-id="${o.id}">เสิร์ฟแล้ว</button>`;
+  if (o.status === 'new') main = `<button class="btn" data-act="cooking" data-id="${o.id}" ${waitingPay ? 'disabled' : ''}>${waitingPay ? 'รอรับเงินก่อน' : 'รับออเดอร์'}</button>`;
+  else if (o.status === 'cooking') main = pickup
+    ? `<button class="btn ok" data-act="ready" data-id="${o.id}">พร้อมรับที่เคาน์เตอร์</button>`
+    : `<button class="btn ok" data-act="served" data-id="${o.id}">ส่งแล้ว</button>`;
+  else if (o.status === 'ready' && pickup) main = `<button class="btn ok" data-act="served" data-id="${o.id}">ลูกค้ารับสินค้าแล้ว</button>`;
 
   // รับเงิน: ปุ่มแรกคือ PromptPay (แตะครั้งเดียวจบ) มี "เงินสด" และ "อื่น ๆ" ข้าง ๆ
   const canRefund = o.paid && o.total - o.refunded > 0;
@@ -153,8 +157,11 @@ function card(o) {
   const cancel = o.status === 'cancelled' ? ''
     : `<button class="btn ghost small" data-act="cancel" data-id="${o.id}">ยกเลิกออเดอร์</button>`;
 
+  const location = pickup
+    ? `รับเอง · ${esc(o.queueNo || '-')} <small class="muted">${esc(o.customerName || '')}</small>`
+    : `โต๊ะ ${o.table} <small class="muted">#${o.seq}</small>`;
   return `<div class="card kcard ${o.status} ${late ? 'late' : ''} ${flashIds.has(o.id) ? 'flash' : ''}">
-    <h3><span>โต๊ะ ${o.table} <small class="muted">#${o.seq}</small></span><span class="muted" style="font-size:14px">${mins} นาที</span></h3>
+    <h3><span>${location}</span><span class="muted" style="font-size:14px">${mins} นาที</span></h3>
     <div>${payBadge} <b>${fmt(o.total)}</b></div>
     <ul>${items}</ul>
     <div class="acts">${main}${payBtn}${cancel}</div>
@@ -163,7 +170,7 @@ function card(o) {
 
 async function act(id, a) {
   try {
-    if (a === 'cooking' || a === 'served') await post(`/api/staff/orders/${id}/status`, { status: a });
+    if (a === 'cooking' || a === 'ready' || a === 'served') await post(`/api/staff/orders/${id}/status`, { status: a });
     else if (a === 'pay' || a === 'paycash' || a === 'payother')
       await post(`/api/staff/orders/${id}/paid`, { paid: true, method: { pay: 'promptpay', paycash: 'cash', payother: 'other' }[a] });
     else if (a === 'refund') {

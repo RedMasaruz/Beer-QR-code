@@ -37,7 +37,7 @@ async function api(url, method = 'GET', body) {
 }
 const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { if (e.message !== 'unauthorized') alert(e.message); } };
 
-const TABS = [['summary', 'สรุปวันนี้'], ['acct', 'บัญชี'], ['menu', 'เมนู'], ['settings', 'ตั้งค่า'], ['qr', 'QR โต๊ะ']];
+const TABS = [['summary', 'สรุปวันนี้'], ['acct', 'บัญชี'], ['menu', 'เมนู'], ['settings', 'ตั้งค่า'], ['qr', 'QR สั่งซื้อ']];
 function renderTabs() {
   $('tabs').innerHTML = TABS.map(([k, l]) => `<button class="chip ${tab === k ? 'on' : ''}" data-t="${k}">${l}</button>`).join('');
   $('tabs').querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => show(b.dataset.t)));
@@ -120,7 +120,7 @@ const loadDay = guard(async () => {
   const m = Object.fromEntries(r.methods.map((x) => [x.method, x]));
   const rows = r.methods.map((x) => `<tr><td>${esc(x.label)}</td><td>${x.receiptCount} รายการ · ${fmt(x.receipts)}</td><td>${x.refundCount ? x.refundCount + ' รายการ · ' + fmt(x.refunds) : '-'}</td><td><b>${fmt(x.net)}</b></td></tr>`).join('');
   const open = r.openUnpaid.length
-    ? `<div class="warnbox"><b>ออเดอร์ที่ยังไม่ได้รับเงินของวันนี้ (${r.openUnpaid.length} รายการ รวม ${fmt(r2(r.openUnpaid.reduce((a, o) => a + o.total, 0)))})</b> — เงินส่วนนี้อาจตกหล่น ตรวจในหน้ารับออเดอร์แท็บ "รอรับเงิน" ก่อนปิดร้าน<br>${r.openUnpaid.map((o) => `โต๊ะ ${o.table} (#${o.seq}) ${fmt(o.total)}`).join(' · ')}</div>` : '';
+    ? `<div class="warnbox"><b>ออเดอร์ที่ยังไม่ได้รับเงินของวันนี้ (${r.openUnpaid.length} รายการ รวม ${fmt(r2(r.openUnpaid.reduce((a, o) => a + o.total, 0)))})</b> — เงินส่วนนี้อาจตกหล่น ตรวจในหน้ารับออเดอร์แท็บ "รอรับเงิน" ก่อนปิดร้าน<br>${r.openUnpaid.map((o) => `${o.orderType === 'pickup' ? `คิว ${esc(o.queueNo || '-')} (${esc(o.customerName || '-')})` : `โต๊ะ ${o.table}`} (#${o.seq}) ${fmt(o.total)}`).join(' · ')}</div>` : '';
   const c = r.close;
   $('a-day').innerHTML = `
     <table class="acct-table"><thead><tr><th>วิธีจ่าย</th><th>รับเงิน</th><th>คืนเงิน</th><th>สุทธิ</th></tr></thead><tbody>${rows}
@@ -290,6 +290,8 @@ function renderSettings() {
     <div class="card form">
       <label>ชื่อร้าน<input type="text" id="s-name" value="${esc(s.shopName)}" maxlength="50"></label>
       <label>จำนวนโต๊ะ<input type="number" id="s-tables" value="${s.tableCount}" min="1" max="200"></label>
+      <label class="inline"><input type="checkbox" id="s-pickup" ${s.pickupEnabled !== false ? 'checked' : ''}>
+        เปิดรับออเดอร์ “สั่งรับเองที่เคาน์เตอร์”</label>
       <div class="muted">การชำระเงิน: พนักงานแจ้งยอด และให้ลูกค้าสแกน QR บัญชีร้านแล้วพิมพ์ยอดเอง ก่อนกดรับเงินให้ตรวจเงินเข้าบัญชีจริงเสมอ</div>
       <label class="inline"><input type="checkbox" id="s-req" ${s.requirePaymentBeforeKitchen ? 'checked' : ''}>
         ให้เริ่มทำอาหารได้ก็ต่อเมื่อรับเงินแล้วเท่านั้น (กันลูกค้าไม่จ่าย แต่ต้องรอพนักงานกด "รับเงินแล้ว" ทุกออเดอร์)</label>
@@ -298,6 +300,7 @@ function renderSettings() {
   $('s-save').onclick = guard(async () => {
     await api('/api/staff/settings', 'PUT', {
       shopName: $('s-name').value, tableCount: $('s-tables').value,
+      pickupEnabled: $('s-pickup').checked,
       requirePaymentBeforeKitchen: $('s-req').checked,
     });
     await show('settings');
@@ -305,17 +308,19 @@ function renderSettings() {
   });
 }
 
-/* ---------- QR โต๊ะ ---------- */
+/* ---------- QR สั่งซื้อ ---------- */
 function renderQr() {
   const n = cfg.settings.tableCount;
   let figs = '';
   for (let i = 1; i <= n; i++) figs += `<figure><img src="/api/staff/tableqr/${i}" alt="QR โต๊ะ ${i}"><figcaption>โต๊ะ ${i}</figcaption><div class="muted">สแกนเพื่อสั่งอาหาร</div></figure>`;
   $('p-qr').innerHTML = `${warnings()}
     <div class="inline noprint" style="justify-content:space-between">
-      <h2>QR สำหรับติดโต๊ะ (${n} โต๊ะ)</h2>
+      <h2>QR สำหรับลูกค้า</h2>
       <button class="btn small" onclick="window.print()">พิมพ์</button>
     </div>
-    <p class="muted noprint">QR ชี้ไปที่ <b>${esc(cfg.baseUrl)}</b>/t/เลขโต๊ะ — ถ้าที่อยู่นี้ไม่ใช่ที่อยู่จริงที่ลูกค้าเข้าถึงได้ ให้แก้ก่อนพิมพ์</p>
+    <p class="muted noprint">QR ชี้ไปที่ <b>${esc(cfg.baseUrl)}</b> — ใช้ใบ “สั่งรับเอง” ที่เคาน์เตอร์ และใช้ QR โต๊ะสำหรับลูกค้าที่นั่งในร้าน</p>
+    <div class="qrgrid pickup-qr"><figure><img src="/api/staff/pickupqr" alt="QR สั่งรับเอง"><figcaption>สั่งรับเองที่เคาน์เตอร์</figcaption><div class="muted">สแกนเพื่อสั่งเครื่องดื่ม เบียร์ และขนม</div></figure></div>
+    <h2>QR สำหรับติดโต๊ะ (${n} โต๊ะ)</h2>
     <div class="qrgrid">${figs}</div>`;
 }
 
