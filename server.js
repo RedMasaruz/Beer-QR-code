@@ -171,6 +171,7 @@ app.get('/img/:file', asyncRoute(async (req, res) => {
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
 app.get('/t/:table', page('customer.html'));
 app.get('/pickup', page('customer.html'));
+app.get('/pos', page('pos.html'));
 app.get('/kitchen', page('kitchen.html'));
 app.get('/admin', page('admin.html'));
 app.get('/login', page('login.html'));
@@ -325,8 +326,8 @@ staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
   if (!o) return res.status(404).json({ error: 'not found' });
   const st = req.body.status;
   if (!['new', 'cooking', 'ready', 'served', 'cancelled'].includes(st)) return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
-  if (st === 'ready' && (o.orderType || 'table') !== 'pickup')
-    return res.status(400).json({ error: 'สถานะพร้อมรับใช้กับออเดอร์รับเองเท่านั้น' });
+  if (st === 'ready' && !['pickup', 'pos'].includes(o.orderType || 'table'))
+    return res.status(400).json({ error: 'สถานะพร้อมรับใช้กับออเดอร์รับเองหรือ POS เท่านั้น' });
   if (st === 'cooking' && data.settings.requirePaymentBeforeKitchen && !o.paid)
     return res.status(409).json({ error: 'ตั้งค่าไว้ให้ชำระก่อนเริ่มทำ' });
   // เงินต้องตามรอยได้: ออเดอร์ที่รับเงินแล้วจะยกเลิกได้ก็ต่อเมื่อบันทึกการคืนเงินครบแล้ว
@@ -345,6 +346,46 @@ staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
 // ---- รับเงิน (บันทึกวิธีจ่ายและเวลา) / ยกเลิกการรับเงิน
 const METHODS = ['promptpay', 'cash', 'other'];
 const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
+
+// ---- POS หน้าเคาน์เตอร์: พนักงานบันทึกการขายและรับเงินในครั้งเดียว
+staff.post('/pos/orders', asyncRoute(async (req, res) => {
+  const method = req.body.method || 'promptpay';
+  if (!METHODS.includes(method)) return res.status(400).json({ error: 'วิธีจ่ายไม่ถูกต้อง' });
+  const fulfillment = req.body.fulfillment === 'prepare' ? 'prepare' : 'immediate';
+  const customerName = String(req.body.customerName || '').trim().replace(/\s+/g, ' ').slice(0, 30) || null;
+  const lines = Array.isArray(req.body.items) ? req.body.items : [];
+  if (!lines.length || lines.length > 30) return res.status(400).json({ error: 'ตะกร้าว่างหรือมีรายการมากเกินไป' });
+
+  const items = [];
+  let totalSatang = 0;
+  for (const line of lines) {
+    const item = data.items.find((x) => x.id === line.itemId);
+    const qty = parseInt(line.qty, 10);
+    if (!item || !item.available) return res.status(400).json({ error: 'มีเมนูที่หมดหรือไม่พบ กรุณารีเฟรชหน้า' });
+    if (!(qty >= 1 && qty <= 20)) return res.status(400).json({ error: 'จำนวนไม่ถูกต้อง' });
+    const priceSatang = Math.round(item.price * 100);
+    totalSatang += priceSatang * qty;
+    items.push({ name: item.name, price: item.price, qty, note: '' });
+  }
+
+  const now = Date.now(), today = bkkDate(now);
+  if (data.seq.date !== today) data.seq = { date: today, n: 0 };
+  if (data.pickupSeq.date !== today) data.pickupSeq = { date: today, n: 0 };
+  data.seq.n += 1;
+  data.pickupSeq.n += 1;
+  const order = {
+    id: uid(), seq: data.seq.n, orderType: 'pos', table: null, customerName,
+    queueNo: `A${String(data.pickupSeq.n).padStart(3, '0')}`,
+    items, totalSatang, status: fulfillment === 'prepare' ? 'cooking' : 'served',
+    paid: true, paymentMethod: method, paidAt: now, createdAt: now, updatedAt: now,
+  };
+  data.orders.push(order);
+  logEvent('paid', order.id, `${method} pos`);
+  await save();
+  broadcast('new', order.id);
+  res.json(publicOrder(order));
+}));
+
 staff.post('/orders/:id/paid', asyncRoute(async (req, res) => {
   const o = data.orders.find((x) => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: 'not found' });
@@ -507,8 +548,8 @@ staff.get('/export/:kind', requireAdmin, asyncRoute(async (req, res) => {
   let header, rows;
   if (kind === 'orders') {
     header = ['เลขที่ออเดอร์', 'วันเวลาที่สั่ง', 'ประเภท', 'โต๊ะ/คิว', 'ชื่อลูกค้า', 'สถานะ', 'ยอด(บาท)', 'จ่ายแล้ว', 'วิธีจ่าย', 'วันเวลารับเงิน', 'คืนเงินรวม(บาท)'];
-    rows = orders.map((o) => [orderNo(o), bkkTime(o.createdAt), (o.orderType || 'table') === 'pickup' ? 'รับเอง' : 'โต๊ะ',
-      (o.orderType || 'table') === 'pickup' ? o.queueNo || '' : o.table, o.customerName || '', STATUS_TH[o.status] || o.status, baht(o.totalSatang).toFixed(2),
+    rows = orders.map((o) => [orderNo(o), bkkTime(o.createdAt), (o.orderType || 'table') === 'pickup' ? 'รับเอง' : o.orderType === 'pos' ? 'POS หน้าร้าน' : 'โต๊ะ',
+      ['pickup', 'pos'].includes(o.orderType) ? o.queueNo || '' : o.table, o.customerName || '', STATUS_TH[o.status] || o.status, baht(o.totalSatang).toFixed(2),
       o.paid ? 'ใช่' : 'ไม่', o.paid ? METHOD_TH[methodOf(o.paymentMethod)] : '', o.paid && o.paidAt ? bkkTime(o.paidAt) : '', baht(refundedSatang(o.id)).toFixed(2)]);
   } else if (kind === 'order_items') {
     header = ['เลขที่ออเดอร์', 'สถานะออเดอร์', 'ชื่อเมนู', 'ราคาต่อหน่วย(บาท)', 'จำนวน', 'รวม(บาท)', 'หมายเหตุ'];
@@ -678,7 +719,7 @@ async function start() {
   await save(); // บันทึก migration และสร้าง singleton row ในการเปิดครั้งแรก
   app.listen(PORT, () => {
     console.log(`เปิดใช้งานที่ http://localhost:${PORT}`);
-    console.log(`  รับออเดอร์: /kitchen    หน้าแอดมิน: /admin    หน้าลูกค้า: /t/1`);
+    console.log(`  POS: /pos    รับออเดอร์: /kitchen    หน้าแอดมิน: /admin    หน้าลูกค้า: /t/1`);
     console.log(`  ที่เก็บข้อมูล: ${persistence.remote ? 'Supabase' : DATA_FILE}`);
     if (STAFF_PIN === '1234') console.log('⚠️  ยังใช้ PIN เริ่มต้น 1234 — ตั้งค่าใหม่ด้วย STAFF_PIN=xxxx ก่อนใช้งานจริง');
     if (ADMIN_PIN === '5678') console.log('⚠️  ยังใช้ PIN แอดมินเริ่มต้น 5678 — ตั้งค่าใหม่ด้วย ADMIN_PIN=xxxx');

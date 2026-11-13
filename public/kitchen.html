@@ -11,6 +11,7 @@
 <div class="bar">
   <h1 id="shop">รับออเดอร์</h1>
   <span id="live" class="badge gray">กำลังเชื่อมต่อ…</span>
+  <a href="/pos">POS</a>
   <a href="/admin">แอดมิน</a>
 </div>
 <div class="tabs" id="tabs"></div>
@@ -137,13 +138,15 @@ function card(o) {
     : '<span class="badge bad">ยังไม่จ่าย</span>';
   const waitingPay = requirePay && !o.paid && o.status === 'new';
   const pickup = o.orderType === 'pickup';
+  const counter = o.orderType === 'pos';
+  const counterQueue = pickup || counter;
 
   let main = '';
   if (o.status === 'new') main = `<button class="btn" data-act="cooking" data-id="${o.id}" ${waitingPay ? 'disabled' : ''}>${waitingPay ? 'รอรับเงินก่อน' : 'รับออเดอร์'}</button>`;
-  else if (o.status === 'cooking') main = pickup
+  else if (o.status === 'cooking') main = counterQueue
     ? `<button class="btn ok" data-act="ready" data-id="${o.id}">พร้อมรับที่เคาน์เตอร์</button>`
     : `<button class="btn ok" data-act="served" data-id="${o.id}">ส่งแล้ว</button>`;
-  else if (o.status === 'ready' && pickup) main = `<button class="btn ok" data-act="served" data-id="${o.id}">ลูกค้ารับสินค้าแล้ว</button>`;
+  else if (o.status === 'ready' && counterQueue) main = `<button class="btn ok" data-act="served" data-id="${o.id}">ลูกค้ารับสินค้าแล้ว</button>`;
 
   // รับเงิน: ปุ่มแรกคือ PromptPay (แตะครั้งเดียวจบ) มี "เงินสด" และ "อื่น ๆ" ข้าง ๆ
   const canRefund = o.paid && o.total - o.refunded > 0;
@@ -157,8 +160,8 @@ function card(o) {
   const cancel = o.status === 'cancelled' ? ''
     : `<button class="btn ghost small" data-act="cancel" data-id="${o.id}">ยกเลิกออเดอร์</button>`;
 
-  const location = pickup
-    ? `รับเอง · ${esc(o.queueNo || '-')} <small class="muted">${esc(o.customerName || '')}</small>`
+  const location = counterQueue
+    ? `${counter ? 'POS' : 'รับเอง'} · ${esc(o.queueNo || '-')} <small class="muted">${esc(o.customerName || '')}</small>`
     : `โต๊ะ ${o.table} <small class="muted">#${o.seq}</small>`;
   return `<div class="card kcard ${o.status} ${late ? 'late' : ''} ${flashIds.has(o.id) ? 'flash' : ''}">
     <h3><span>${location}</span><span class="muted" style="font-size:14px">${mins} นาที</span></h3>

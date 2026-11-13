@@ -20,7 +20,7 @@
 </div>
 <script>
 const next = new URLSearchParams(location.search).get('next');
-const dest = next === '/admin' ? '/admin' : '/kitchen'; // อนุญาตเฉพาะ 2 หน้านี้
+const dest = next === '/admin' ? '/admin' : next === '/pos' ? '/pos' : '/kitchen';
 const role = dest === '/admin' ? 'admin' : 'staff';
 document.getElementById('loginTitle').textContent = role === 'admin' ? 'เข้าสู่ระบบแอดมิน' : 'เข้าสู่ระบบพนักงาน';
 async function login() {

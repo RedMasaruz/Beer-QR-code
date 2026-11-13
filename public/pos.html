@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POS หน้าร้าน</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="pos-page">
+<div class="bar">
+  <h1 id="shop">POS หน้าร้าน</h1>
+  <a href="/kitchen">รับออเดอร์</a>
+  <a href="/admin">แอดมิน</a>
+</div>
+
+<main class="pos-layout">
+  <section class="pos-menu">
+    <div class="chips" id="chips"></div>
+    <div class="pos-products" id="products"></div>
+  </section>
+
+  <aside class="pos-cart card">
+    <div class="pos-cart-title"><h2>รายการขาย</h2><button class="btn ghost small" id="clearBtn">ล้าง</button></div>
+    <div id="cartRows" class="pos-cart-rows"><p class="muted">แตะสินค้าเพื่อเพิ่มรายการ</p></div>
+    <label class="pos-field">ชื่อเรียกคิว (ไม่บังคับ)
+      <input type="text" id="customerName" maxlength="30" placeholder="เช่น คุณเอ">
+    </label>
+    <div class="pos-choice">
+      <b>การรับสินค้า</b>
+      <label><input type="radio" name="fulfillment" value="immediate" checked> รับสินค้าเลย</label>
+      <label><input type="radio" name="fulfillment" value="prepare"> ต้องจัดเตรียม/เรียกคิว</label>
+    </div>
+    <div class="pos-choice">
+      <b>วิธีชำระ</b>
+      <label><input type="radio" name="method" value="promptpay" checked> PromptPay</label>
+      <label><input type="radio" name="method" value="cash"> เงินสด</label>
+      <label><input type="radio" name="method" value="other"> อื่น ๆ</label>
+    </div>
+    <label class="pos-field hidden" id="cashBox">รับเงินสด (บาท)
+      <input type="number" id="cashReceived" min="0" step="1" inputmode="decimal" placeholder="0">
+      <span id="changeText" class="muted">เงินทอน ฿0</span>
+    </label>
+    <div class="pos-total"><span>รวมทั้งหมด</span><strong id="total">฿0</strong></div>
+    <button class="btn pos-charge" id="chargeBtn" disabled>รับเงินและบันทึกการขาย</button>
+    <div class="muted pos-hint" id="payHint">ตรวจเงินเข้าบัญชีจริงก่อนกดบันทึก</div>
+    <div id="result"></div>
+  </aside>
+</main>
+<button class="btn pos-mobile-cart" id="mobileCart"><span id="mobileCount">ยังไม่มีรายการ</span><span id="mobileTotal">฿0</span></button>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+let menu = null, activeCat = null, cart = {};
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (r.status === 401) { location.href = '/login?next=/pos'; throw new Error('unauthorized'); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+  return j;
+}
+
+function lines() {
+  return Object.entries(cart).map(([id, qty]) => ({ item: menu.items.find((x) => x.id === id), qty })).filter((x) => x.item);
+}
+function sum() { return lines().reduce((n, x) => n + x.item.price * x.qty, 0); }
+
+function change(id, amount) {
+  const next = Math.max(0, Math.min(20, (cart[id] || 0) + amount));
+  if (next) cart[id] = next; else delete cart[id];
+  renderProducts(); renderCart();
+}
+
+function renderProducts() {
+  $('chips').innerHTML = menu.categories.map((c) => `<button class="chip ${c.id === activeCat ? 'on' : ''}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join('');
+  $('chips').querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => { activeCat = b.dataset.cat; renderProducts(); }));
+  const items = menu.items.filter((x) => x.categoryId === activeCat);
+  $('products').innerHTML = items.length ? items.map((item) => {
+    const src = item.image ? `/img/${esc(item.image)}` : item.defaultImage ? esc(item.defaultImage) : '';
+    const qty = cart[item.id] || 0;
+    return `<button class="pos-product ${item.available ? '' : 'out'}" data-item="${esc(item.id)}" ${item.available ? '' : 'disabled'}>
+      ${src ? `<img src="${src}" alt="" style="transform:scale(${Number(item.imageScale) || 1})">` : '<span class="pos-noimg">ไม่มีรูป</span>'}
+      <span class="pos-product-body"><b>${esc(item.name)}</b><span>${fmt(item.price)}</span></span>
+      ${qty ? `<span class="pos-product-qty">${qty}</span>` : ''}
+    </button>`;
+  }).join('') : '<p class="muted">ยังไม่มีเมนูในหมวดนี้</p>';
+  $('products').querySelectorAll('[data-item]').forEach((b) => (b.onclick = () => change(b.dataset.item, 1)));
+}
+
+function renderCart() {
+  const list = lines();
+  $('cartRows').innerHTML = list.length ? list.map((x) => `<div class="pos-cart-row">
+    <div><b>${esc(x.item.name)}</b><span class="muted">${fmt(x.item.price * x.qty)}</span></div>
+    <div class="qty"><button data-sub="${esc(x.item.id)}">−</button><b>${x.qty}</b><button class="add" data-add="${esc(x.item.id)}">+</button></div>
+  </div>`).join('') : '<p class="muted">แตะสินค้าเพื่อเพิ่มรายการ</p>';
+  $('cartRows').querySelectorAll('[data-sub]').forEach((b) => (b.onclick = () => change(b.dataset.sub, -1)));
+  $('cartRows').querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => change(b.dataset.add, 1)));
+  $('total').textContent = fmt(sum());
+  $('mobileCount').textContent = list.length ? `ดูรายการ (${list.reduce((n, x) => n + x.qty, 0)})` : 'ยังไม่มีรายการ';
+  $('mobileTotal').textContent = fmt(sum());
+  $('chargeBtn').disabled = !list.length;
+  updateChange();
+}
+
+function selected(name) { return document.querySelector(`input[name="${name}"]:checked`).value; }
+function updatePayment() {
+  const cash = selected('method') === 'cash';
+  $('cashBox').classList.toggle('hidden', !cash);
+  $('payHint').textContent = cash ? 'นับเงินและตรวจเงินทอนก่อนบันทึก' : selected('method') === 'promptpay' ? 'ตรวจเงินเข้าบัญชีจริงก่อนกดบันทึก' : 'ตรวจสอบช่องทางชำระก่อนกดบันทึก';
+  updateChange();
+}
+function updateChange() {
+  const received = Number($('cashReceived').value || 0), changeAmount = received - sum();
+  $('changeText').textContent = changeAmount >= 0 ? `เงินทอน ${fmt(changeAmount)}` : `ยังขาด ${fmt(Math.abs(changeAmount))}`;
+}
+
+$('clearBtn').onclick = () => { if (!Object.keys(cart).length || confirm('ล้างรายการทั้งหมด?')) { cart = {}; renderProducts(); renderCart(); } };
+$('mobileCart').onclick = () => document.querySelector('.pos-cart').scrollIntoView({ behavior: 'smooth', block: 'start' });
+document.querySelectorAll('input[name="method"]').forEach((x) => (x.onchange = updatePayment));
+$('cashReceived').oninput = updateChange;
+
+$('chargeBtn').onclick = async () => {
+  const button = $('chargeBtn'), total = sum(), method = selected('method');
+  if (method === 'cash' && Number($('cashReceived').value || 0) < total) { alert('จำนวนเงินสดยังไม่พอ'); return; }
+  if (method === 'promptpay' && !confirm(`ตรวจพบเงินเข้า ${fmt(total)} ในบัญชีร้านแล้วใช่ไหม?`)) return;
+  button.disabled = true;
+  try {
+    const order = await api('/api/staff/pos/orders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: lines().map((x) => ({ itemId: x.item.id, qty: x.qty })),
+        customerName: $('customerName').value,
+        fulfillment: selected('fulfillment'), method,
+      }),
+    });
+    $('result').innerHTML = `<div class="pos-success"><b>บันทึกการขายแล้ว</b><strong>คิว ${esc(order.queueNo)}</strong><span>${fmt(order.total)} · ${order.status === 'served' ? 'รับสินค้าแล้ว' : 'ส่งไปจอรับออเดอร์แล้ว'}</span></div>`;
+    cart = {}; $('customerName').value = ''; $('cashReceived').value = '';
+    renderProducts(); renderCart();
+  } catch (error) {
+    if (error.message !== 'unauthorized') alert(error.message);
+    button.disabled = false;
+  }
+};
+
+(async () => {
+  try {
+    await api('/api/me').then((me) => { if (!me.staff) { location.href = '/login?next=/pos'; throw new Error('unauthorized'); } });
+    menu = await api('/api/menu');
+    $('shop').textContent = 'POS · ' + menu.shopName;
+    activeCat = menu.categories[0] ? menu.categories[0].id : null;
+    renderProducts(); renderCart(); updatePayment();
+  } catch (error) {
+    if (error.message !== 'unauthorized') $('products').innerHTML = '<p class="card">โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</p>';
+  }
+})();
+</script>
+</body>
+</html>

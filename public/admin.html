@@ -10,6 +10,7 @@
 <body>
 <div class="bar">
   <h1>แอดมิน</h1>
+  <a href="/pos">POS</a>
   <a href="/kitchen">รับออเดอร์</a>
 </div>
 <div class="tabs" id="tabs"></div>
@@ -120,7 +121,7 @@ const loadDay = guard(async () => {
   const m = Object.fromEntries(r.methods.map((x) => [x.method, x]));
   const rows = r.methods.map((x) => `<tr><td>${esc(x.label)}</td><td>${x.receiptCount} รายการ · ${fmt(x.receipts)}</td><td>${x.refundCount ? x.refundCount + ' รายการ · ' + fmt(x.refunds) : '-'}</td><td><b>${fmt(x.net)}</b></td></tr>`).join('');
   const open = r.openUnpaid.length
-    ? `<div class="warnbox"><b>ออเดอร์ที่ยังไม่ได้รับเงินของวันนี้ (${r.openUnpaid.length} รายการ รวม ${fmt(r2(r.openUnpaid.reduce((a, o) => a + o.total, 0)))})</b> — เงินส่วนนี้อาจตกหล่น ตรวจในหน้ารับออเดอร์แท็บ "รอรับเงิน" ก่อนปิดร้าน<br>${r.openUnpaid.map((o) => `${o.orderType === 'pickup' ? `คิว ${esc(o.queueNo || '-')} (${esc(o.customerName || '-')})` : `โต๊ะ ${o.table}`} (#${o.seq}) ${fmt(o.total)}`).join(' · ')}</div>` : '';
+    ? `<div class="warnbox"><b>ออเดอร์ที่ยังไม่ได้รับเงินของวันนี้ (${r.openUnpaid.length} รายการ รวม ${fmt(r2(r.openUnpaid.reduce((a, o) => a + o.total, 0)))})</b> — เงินส่วนนี้อาจตกหล่น ตรวจในหน้ารับออเดอร์แท็บ "รอรับเงิน" ก่อนปิดร้าน<br>${r.openUnpaid.map((o) => `${['pickup', 'pos'].includes(o.orderType) ? `คิว ${esc(o.queueNo || '-')} (${esc(o.customerName || '-')})` : `โต๊ะ ${o.table}`} (#${o.seq}) ${fmt(o.total)}`).join(' · ')}</div>` : '';
   const c = r.close;
   $('a-day').innerHTML = `
     <table class="acct-table"><thead><tr><th>วิธีจ่าย</th><th>รับเงิน</th><th>คืนเงิน</th><th>สุทธิ</th></tr></thead><tbody>${rows}
