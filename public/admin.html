@@ -202,6 +202,7 @@ function renderMenu() {
         </div>
         <input type="text" class="f-name" value="${esc(i.name)}" style="flex:1;min-width:140px" maxlength="60">
         <input type="number" class="f-price" value="${i.price}" min="0" step="0.5" style="width:90px">
+        <input type="number" class="f-stock" value="${i.stockCount ?? ''}" min="0" step="1" style="width:95px" placeholder="สต็อก ∞" title="จำนวนสต็อก (เว้นว่าง = ไม่จำกัด)">
         <label class="inline"><input type="checkbox" class="f-vis" ${i.visible !== false ? 'checked' : ''}> แสดง</label>
         <label class="inline"><input type="checkbox" class="f-av" ${i.available ? 'checked' : ''}> มีของ</label>
         <button class="btn small" data-save="${esc(i.id)}">บันทึก</button>
@@ -224,7 +225,7 @@ function renderMenu() {
   }).join('');
 
   $('p-menu').innerHTML = `<h2>เมนูและราคา</h2>
-    <p class="muted">ซ่อนหมวดได้โดยเอาติ๊ก "แสดงหมวดนี้ให้ลูกค้าเห็น" ออก หรือซ่อนเฉพาะเมนูโดยเอาติ๊ก "แสดง" ออก ข้อมูลจะยังอยู่และเปิดกลับได้ตลอด<br>ติ๊ก "มีของ" ออกเมื่อของหมด ลูกค้าจะเห็นคำว่า “หมด” แต่สั่งไม่ได้<br>รูปอาหาร: เพิ่มเมนูก่อน แล้วกด "เพิ่มรูป" ที่แถวเมนู</p>
+    <p class="muted">ช่อง “สต็อก ∞” ใส่จำนวนสินค้าที่มี ระบบจะหักอัตโนมัติเมื่อสั่ง และคืนเมื่อยกเลิกออเดอร์ เว้นว่างไว้หากไม่ต้องการนับสต็อก<br>ซ่อนหมวดได้โดยเอาติ๊ก "แสดงหมวดนี้ให้ลูกค้าเห็น" ออก หรือซ่อนเฉพาะเมนูโดยเอาติ๊ก "แสดง" ออก ข้อมูลจะยังอยู่และเปิดกลับได้ตลอด<br>ติ๊ก "มีของ" ออกเพื่อหยุดขายชั่วคราว<br>รูปอาหาร: เพิ่มเมนูก่อน แล้วกด "เพิ่มรูป" ที่แถวเมนู</p>
     ${html}
     <div class="inline" style="margin-top:16px">
       <input type="text" id="newCat" placeholder="ชื่อหมวดใหม่" maxlength="40">
@@ -236,6 +237,7 @@ function renderMenu() {
     const row = b.closest('[data-item]');
     await api('/api/staff/items/' + b.dataset.save, 'PUT', {
       name: row.querySelector('.f-name').value, price: row.querySelector('.f-price').value,
+      stockCount: row.querySelector('.f-stock').value,
       visible: row.querySelector('.f-vis').checked, available: row.querySelector('.f-av').checked,
     });
     b.textContent = 'บันทึกแล้ว ✓'; setTimeout(() => (b.textContent = 'บันทึก'), 1200);

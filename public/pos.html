@@ -83,7 +83,7 @@ function renderProducts() {
     const qty = cart[item.id] || 0;
     return `<button class="pos-product ${item.available ? '' : 'out'}" data-item="${esc(item.id)}" ${item.available ? '' : 'disabled'}>
       ${src ? `<img src="${src}" alt="" style="transform:scale(${Number(item.imageScale) || 1})">` : '<span class="pos-noimg">ไม่มีรูป</span>'}
-      <span class="pos-product-body"><b>${esc(item.name)}</b><span>${fmt(item.price)}</span></span>
+      <span class="pos-product-body"><b>${esc(item.name)}</b><span>${fmt(item.price)}${Number.isInteger(item.stockCount) ? ` · เหลือ ${item.stockCount}` : ''}</span></span>
       ${qty ? `<span class="pos-product-qty">${qty}</span>` : ''}
     </button>`;
   }).join('') : '<p class="muted">ยังไม่มีเมนูในหมวดนี้</p>';
@@ -138,6 +138,7 @@ $('chargeBtn').onclick = async () => {
     });
     $('result').innerHTML = `<div class="pos-success"><b>บันทึกการขายแล้ว</b><strong>คิว ${esc(order.queueNo)}</strong><span>${fmt(order.total)} · ${order.status === 'served' ? 'รับสินค้าแล้ว' : 'ส่งไปจอรับออเดอร์แล้ว'}</span></div>`;
     cart = {}; $('customerName').value = ''; $('cashReceived').value = '';
+    menu = await api('/api/menu');
     renderProducts(); renderCart();
   } catch (error) {
     if (error.message !== 'unauthorized') alert(error.message);

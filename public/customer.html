@@ -119,7 +119,8 @@ function itemHtml(i) {
   const imageSrc = i.image ? `/img/${esc(i.image)}` : (i.defaultImage ? esc(i.defaultImage) : '');
   const imageScale = Number(i.imageScale) > 0 ? Number(i.imageScale) : 1;
   const img = imageSrc ? `<span class="thumbbox"><img class="thumb" loading="lazy" decoding="async" src="${imageSrc}" alt="${esc(i.name)}" style="transform:scale(${imageScale})"></span>` : '';
-  return `<div class="card item ${i.available ? '' : 'out'}">${img}<div class="body"><div class="name">${esc(i.name)}</div><div class="price">${fmt(i.price)}</div></div>${ctrl}</div>`;
+  const stock = Number.isInteger(i.stockCount) ? `<div class="muted" style="font-size:13px">เหลือ ${i.stockCount}</div>` : '';
+  return `<div class="card item ${i.available ? '' : 'out'}">${img}<div class="body"><div class="name">${esc(i.name)}</div><div class="price">${fmt(i.price)}</div>${stock}</div>${ctrl}</div>`;
 }
 
 function change(id, d) {
@@ -185,7 +186,7 @@ $('placeBtn').onclick = async () => {
     saveIds([...loadIds(), o.id]);
     orders[o.id] = o;
     $('cartDlg').close();
-    renderMenu(); renderOrders();
+    await loadMenu(); renderOrders();
     toast(isPickup ? `รับออเดอร์แล้ว · คิว ${o.queueNo} · ยอด ${fmt(o.total)}` : `สั่งแล้ว! ยอด ${fmt(o.total)} กรุณาชำระกับพนักงาน`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {

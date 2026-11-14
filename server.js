@@ -41,8 +41,9 @@ function defaultData() {
       { id: 'i6', categoryId: 'c3', name: 'ครัวซองต์เนย', price: 65, available: true },
       { id: 'i7', categoryId: 'c3', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
       { id: 'i8', categoryId: 'c4', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
-      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องยาว', price: 65, available: true, defaultImage: '/images/beer-leo.jpg' },
+      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
+      { id: 'i13', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i11', categoryId: 'c6', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
       { id: 'i12', categoryId: 'c6', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
     ],
@@ -232,7 +233,9 @@ app.get('/api/menu', (req, res) => {
     tableCount: s.tableCount,
     pickupEnabled: s.pickupEnabled !== false,
     categories,
-    items: data.items.filter((i) => visibleCategoryIds.has(i.categoryId) && i.visible !== false),
+    items: data.items
+      .filter((i) => visibleCategoryIds.has(i.categoryId) && i.visible !== false)
+      .map((i) => ({ ...i, available: i.available && (i.stockCount === null || i.stockCount === undefined || i.stockCount > 0) })),
   });
 });
 
@@ -281,14 +284,19 @@ app.post('/api/orders', asyncRoute(async (req, res) => {
 
   const items = [];
   let totalSatang = 0;
+  const stockNeeded = new Map();
   for (const l of lines) {
     const it = data.items.find((x) => x.id === l.itemId);
     const qty = parseInt(l.qty, 10);
     if (!it || !it.available || it.visible === false) return res.status(400).json({ error: 'มีเมนูที่หมด ซ่อนอยู่ หรือไม่พบ กรุณารีเฟรชหน้า' });
     if (!(qty >= 1 && qty <= 20)) return res.status(400).json({ error: 'จำนวนไม่ถูกต้อง' });
+    const needed = (stockNeeded.get(it.id) || 0) + qty;
+    if (Number.isInteger(it.stockCount) && needed > it.stockCount)
+      return res.status(409).json({ error: `${it.name} เหลือเพียง ${it.stockCount} ชิ้น` });
+    stockNeeded.set(it.id, needed);
     const priceSatang = Math.round(it.price * 100); // ราคาใช้จากเซิร์ฟเวอร์เสมอ ไม่เชื่อฝั่งลูกค้า
     totalSatang += priceSatang * qty;
-    items.push({ name: it.name, price: it.price, qty, note: String(l.note || '').slice(0, 100) });
+    items.push({ itemId: it.id, name: it.name, price: it.price, qty, note: String(l.note || '').slice(0, 100) });
   }
 
   const today = bkkDate();
@@ -305,9 +313,20 @@ app.post('/api/orders', asyncRoute(async (req, res) => {
     id: uid(), seq: data.seq.n, orderType, table, customerName, queueNo, items, totalSatang,
     status: 'new', paid: false, createdAt: now, updatedAt: now,
   };
+  for (const [itemId, qty] of stockNeeded) {
+    const item = data.items.find((x) => x.id === itemId);
+    if (Number.isInteger(item.stockCount)) item.stockCount -= qty;
+  }
   data.orders.push(order);
   lastOrderAt[rateKey] = now;
-  await save();
+  try { await save(); } catch (error) {
+    data.orders = data.orders.filter((x) => x.id !== order.id);
+    for (const [itemId, qty] of stockNeeded) {
+      const item = data.items.find((x) => x.id === itemId);
+      if (Number.isInteger(item.stockCount)) item.stockCount += qty;
+    }
+    throw error;
+  }
   broadcast('new', order.id);
   res.json(publicOrder(order));
 }));
@@ -348,9 +367,16 @@ staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
   // เงินต้องตามรอยได้: ออเดอร์ที่รับเงินแล้วจะยกเลิกได้ก็ต่อเมื่อบันทึกการคืนเงินครบแล้ว
   if (st === 'cancelled' && o.paid && refundedSatang(o.id) < o.totalSatang)
     return res.status(409).json({ error: 'ออเดอร์นี้รับเงินแล้ว กรุณากด "คืนเงิน" และบันทึกให้ครบยอดก่อนจึงจะยกเลิกได้' });
-  if (o.status === 'cancelled' && st !== 'cancelled' && refundedSatang(o.id) > 0)
-    return res.status(409).json({ error: 'ออเดอร์นี้มีการคืนเงินแล้ว เปิดกลับไม่ได้' });
+  if (o.status === 'cancelled' && st !== 'cancelled')
+    return res.status(409).json({ error: 'ออเดอร์ที่ยกเลิกแล้วเปิดกลับไม่ได้ กรุณาสร้างออเดอร์ใหม่' });
   if (st === 'cancelled' && o.status !== 'cancelled') logEvent('cancel', o.id, '');
+  if (st === 'cancelled' && o.status !== 'cancelled' && !o.stockRestored) {
+    for (const line of o.items) {
+      const item = line.itemId && data.items.find((x) => x.id === line.itemId);
+      if (item && Number.isInteger(item.stockCount)) item.stockCount += line.qty;
+    }
+    o.stockRestored = true;
+  }
   o.status = st;
   o.updatedAt = Date.now();
   await save();
@@ -373,14 +399,19 @@ staff.post('/pos/orders', asyncRoute(async (req, res) => {
 
   const items = [];
   let totalSatang = 0;
+  const stockNeeded = new Map();
   for (const line of lines) {
     const item = data.items.find((x) => x.id === line.itemId);
     const qty = parseInt(line.qty, 10);
     if (!item || !item.available || item.visible === false) return res.status(400).json({ error: 'มีเมนูที่หมด ซ่อนอยู่ หรือไม่พบ กรุณารีเฟรชหน้า' });
     if (!(qty >= 1 && qty <= 20)) return res.status(400).json({ error: 'จำนวนไม่ถูกต้อง' });
+    const needed = (stockNeeded.get(item.id) || 0) + qty;
+    if (Number.isInteger(item.stockCount) && needed > item.stockCount)
+      return res.status(409).json({ error: `${item.name} เหลือเพียง ${item.stockCount} ชิ้น` });
+    stockNeeded.set(item.id, needed);
     const priceSatang = Math.round(item.price * 100);
     totalSatang += priceSatang * qty;
-    items.push({ name: item.name, price: item.price, qty, note: '' });
+    items.push({ itemId: item.id, name: item.name, price: item.price, qty, note: '' });
   }
 
   const now = Date.now(), today = bkkDate(now);
@@ -394,9 +425,20 @@ staff.post('/pos/orders', asyncRoute(async (req, res) => {
     items, totalSatang, status: fulfillment === 'prepare' ? 'cooking' : 'served',
     paid: true, paymentMethod: method, paidAt: now, createdAt: now, updatedAt: now,
   };
+  for (const [itemId, qty] of stockNeeded) {
+    const item = data.items.find((x) => x.id === itemId);
+    if (Number.isInteger(item.stockCount)) item.stockCount -= qty;
+  }
   data.orders.push(order);
   logEvent('paid', order.id, `${method} pos`);
-  await save();
+  try { await save(); } catch (error) {
+    data.orders = data.orders.filter((x) => x.id !== order.id);
+    for (const [itemId, qty] of stockNeeded) {
+      const item = data.items.find((x) => x.id === itemId);
+      if (Number.isInteger(item.stockCount)) item.stockCount += qty;
+    }
+    throw error;
+  }
   broadcast('new', order.id);
   res.json(publicOrder(order));
 }));
@@ -647,9 +689,13 @@ function readItem(b) {
   if (!name || name.length > 60) return { error: 'ชื่อเมนูไม่ถูกต้อง' };
   if (!(price >= 0 && price <= 100000)) return { error: 'ราคาไม่ถูกต้อง' };
   if (!data.categories.some((c) => c.id === b.categoryId)) return { error: 'ไม่พบหมวด' };
+  const stockCount = b.stockCount === '' || b.stockCount === null || b.stockCount === undefined
+    ? null : Number(b.stockCount);
+  if (stockCount !== null && (!Number.isInteger(stockCount) || stockCount < 0 || stockCount > 1000000))
+    return { error: 'จำนวนสต็อกต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000' };
   return { value: {
     name, price: Math.round(price * 100) / 100, categoryId: b.categoryId,
-    available: b.available !== false, visible: b.visible !== false,
+    available: b.available !== false, visible: b.visible !== false, stockCount,
   } };
 }
 staff.post('/items', requireAdmin, asyncRoute(async (req, res) => {
