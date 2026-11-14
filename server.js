@@ -23,31 +23,31 @@ function defaultData() {
       pickupEnabled: true,
     },
     categories: [
-      { id: 'c1', name: 'กาแฟ', visible: false },
-      { id: 'c2', name: 'ชา & เครื่องดื่มอื่น ๆ', visible: false },
-      { id: 'c3', name: 'เบเกอรี่', visible: false },
-      { id: 'c4', name: 'อาหารจานเดียว', visible: false },
-      { id: 'c6', name: 'ของทานเล่น', visible: true },
-      { id: 'c7', name: 'ขนม', visible: true },
-      { id: 'c8', name: 'น้ำอัดลม', visible: true },
-      { id: 'c5', name: 'เบียร์', visible: true },
+      { id: 'coffee', name: 'กาแฟ', visible: false },
+      { id: 'tea-drinks', name: 'ชา & เครื่องดื่มอื่น ๆ', visible: false },
+      { id: 'bakery', name: 'เบเกอรี่', visible: false },
+      { id: 'single-dish', name: 'อาหารจานเดียว', visible: false },
+      { id: 'snacks', name: 'ของทานเล่น', visible: true },
+      { id: 'sweets', name: 'ขนม', visible: true },
+      { id: 'soft-drinks', name: 'น้ำอัดลม', visible: true },
+      { id: 'beer', name: 'เบียร์', visible: true },
     ],
     // เมนูตัวอย่าง — แก้/ลบได้ในหน้าแอดมิน
     items: [
-      { id: 'i1', categoryId: 'c1', name: 'อเมริกาโน่เย็น', price: 55, available: true },
-      { id: 'i2', categoryId: 'c1', name: 'ลาเต้ร้อน', price: 65, available: true },
-      { id: 'i3', categoryId: 'c1', name: 'คาปูชิโน่เย็น', price: 70, available: true },
-      { id: 'i4', categoryId: 'c2', name: 'ชาไทยเย็น', price: 50, available: true },
-      { id: 'i5', categoryId: 'c2', name: 'มัทฉะลาเต้', price: 75, available: true },
-      { id: 'i6', categoryId: 'c3', name: 'ครัวซองต์เนย', price: 65, available: true },
-      { id: 'i7', categoryId: 'c3', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
-      { id: 'i8', categoryId: 'c4', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
-      { id: 'i13', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
-      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
-      { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
-      { id: 'i14', categoryId: 'c8', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24 },
-      { id: 'i11', categoryId: 'c6', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
-      { id: 'i12', categoryId: 'c6', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
+      { id: 'i1', categoryId: 'coffee', name: 'อเมริกาโน่เย็น', price: 55, available: true },
+      { id: 'i2', categoryId: 'coffee', name: 'ลาเต้ร้อน', price: 65, available: true },
+      { id: 'i3', categoryId: 'coffee', name: 'คาปูชิโน่เย็น', price: 70, available: true },
+      { id: 'i4', categoryId: 'tea-drinks', name: 'ชาไทยเย็น', price: 50, available: true },
+      { id: 'i5', categoryId: 'tea-drinks', name: 'มัทฉะลาเต้', price: 75, available: true },
+      { id: 'i6', categoryId: 'bakery', name: 'ครัวซองต์เนย', price: 65, available: true },
+      { id: 'i7', categoryId: 'bakery', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
+      { id: 'i8', categoryId: 'single-dish', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
+      { id: 'i13', categoryId: 'beer', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
+      { id: 'i9', categoryId: 'beer', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
+      { id: 'i10', categoryId: 'beer', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
+      { id: 'i14', categoryId: 'soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24 },
+      { id: 'i11', categoryId: 'snacks', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
+      { id: 'i12', categoryId: 'snacks', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
     ],
     orders: [],
     refunds: [], // การคืนเงิน แยกเป็นรายการ
@@ -69,11 +69,24 @@ function normalizeData(raw) {
   try {
     const d = defaultData();
     const settings = { ...d.settings, ...(raw.settings || {}) };
-    const hiddenDefaultCategories = new Set(['c1', 'c2', 'c3', 'c4']);
+    const categoryIds = new Map([
+      ['กาแฟ', 'coffee'],
+      ['ชา & เครื่องดื่มอื่น ๆ', 'tea-drinks'],
+      ['เบเกอรี่', 'bakery'],
+      ['อาหารจานเดียว', 'single-dish'],
+      ['ของทานเล่น', 'snacks'],
+      ['ขนม', 'sweets'],
+      ['น้ำอัดลม', 'soft-drinks'],
+      ['เบียร์', 'beer'],
+    ]);
+    const migratedCategoryIds = new Map();
+    const hiddenDefaultCategories = new Set(['coffee', 'tea-drinks', 'bakery', 'single-dish']);
     const categories = (raw.categories || d.categories).map((c) => ({
       ...c,
-      visible: c.visible === undefined ? !hiddenDefaultCategories.has(c.id) : c.visible,
+      id: categoryIds.get(c.name) || c.id,
+      visible: c.visible === undefined ? !hiddenDefaultCategories.has(categoryIds.get(c.name) || c.id) : c.visible,
     }));
+    (raw.categories || d.categories).forEach((c) => migratedCategoryIds.set(c.id, categoryIds.get(c.name) || c.id));
     // เมนูร้าน: ของทานเล่น → ขนม → น้ำอัดลม → เบียร์ โดยคงลำดับหมวดอื่นไว้เหมือนเดิม
     const menuOrder = ['ของทานเล่น', 'ขนม', 'น้ำอัดลม', 'เบียร์'];
     const menuNames = new Set(menuOrder);
@@ -86,12 +99,13 @@ function normalizeData(raw) {
       rest.splice(insertAt, 0, ...ordered);
       categories.splice(0, categories.length, ...rest);
     }
-    const items = (raw.items || d.items).map((i) => (
-      i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
+    const items = (raw.items || d.items).map((original) => {
+      const i = { ...original, categoryId: migratedCategoryIds.get(original.categoryId) || original.categoryId };
+      return i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
         && (i.imageScale === undefined || i.imageScale === 1.7)
         ? { ...i, imageScale: 1.1 }
-        : i
-    ));
+        : i;
+    });
     delete settings.promptpayId; // เลิกเก็บเลขบัญชี: ใช้ QR บัญชีร้านที่พนักงานถือแทน
     return {
       settings,
@@ -233,7 +247,7 @@ app.get('/api/menu', (req, res) => {
   const visibleCategoryIds = new Set(categories.map((c) => c.id));
   // หมวดเบียร์เรียงกระป๋องเล็กก่อนกระป๋องใหญ่ โดยคงตำแหน่งเมนูหมวดอื่นไว้
   const beerItems = data.items
-    .filter((i) => i.categoryId === 'c5')
+    .filter((i) => i.categoryId === 'beer')
     .map((item, index) => ({ item, index }))
     .sort((a, b) => {
       const rank = (i) => (i.name.includes('320') ? 0 : i.name.includes('490') ? 1 : 2);
@@ -241,7 +255,7 @@ app.get('/api/menu', (req, res) => {
     })
     .map(({ item }) => item);
   let beerIndex = 0;
-  const orderedItems = data.items.map((i) => (i.categoryId === 'c5' ? beerItems[beerIndex++] : i));
+  const orderedItems = data.items.map((i) => (i.categoryId === 'beer' ? beerItems[beerIndex++] : i));
   res.json({
     shopName: s.shopName,
     tableCount: s.tableCount,
