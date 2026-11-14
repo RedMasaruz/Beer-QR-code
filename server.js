@@ -23,9 +23,12 @@ function defaultData() {
       pickupEnabled: true,
     },
     categories: [
-      { id: 'coffee', name: 'กาแฟ', visible: false },
-      { id: 'tea-drinks', name: 'ชา & เครื่องดื่มอื่น ๆ', visible: false },
-      { id: 'bakery', name: 'เบเกอรี่', visible: false },
+      { id: 'coffee', name: 'กาแฟ', visible: true },
+      { id: 'tea-matcha', name: 'ชาและมัทฉะ', visible: true },
+      { id: 'milk-cocoa', name: 'นมและโกโก้', visible: false },
+      { id: 'juice-soda', name: 'น้ำผลไม้และโซดา', visible: false },
+      { id: 'bottled-drinks', name: 'น้ำดื่มและเครื่องดื่มบรรจุขวด', visible: false },
+      { id: 'bakery', name: 'เบเกอรี่', visible: true },
       { id: 'single-dish', name: 'อาหารจานเดียว', visible: false },
       { id: 'snacks', name: 'ของทานเล่น', visible: true },
       { id: 'sweets', name: 'ขนม', visible: true },
@@ -37,8 +40,8 @@ function defaultData() {
       { id: 'i1', categoryId: 'coffee', name: 'อเมริกาโน่เย็น', price: 55, available: true },
       { id: 'i2', categoryId: 'coffee', name: 'ลาเต้ร้อน', price: 65, available: true },
       { id: 'i3', categoryId: 'coffee', name: 'คาปูชิโน่เย็น', price: 70, available: true },
-      { id: 'i4', categoryId: 'tea-drinks', name: 'ชาไทยเย็น', price: 50, available: true },
-      { id: 'i5', categoryId: 'tea-drinks', name: 'มัทฉะลาเต้', price: 75, available: true },
+      { id: 'i4', categoryId: 'tea-matcha', name: 'ชาไทยเย็น', price: 50, available: true },
+      { id: 'i5', categoryId: 'tea-matcha', name: 'มัทฉะลาเต้', price: 75, available: true },
       { id: 'i6', categoryId: 'bakery', name: 'ครัวซองต์เนย', price: 65, available: true },
       { id: 'i7', categoryId: 'bakery', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
       { id: 'i8', categoryId: 'single-dish', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
@@ -71,7 +74,11 @@ function normalizeData(raw) {
     const settings = { ...d.settings, ...(raw.settings || {}) };
     const categoryIds = new Map([
       ['กาแฟ', 'coffee'],
-      ['ชา & เครื่องดื่มอื่น ๆ', 'tea-drinks'],
+      ['ชา & เครื่องดื่มอื่น ๆ', 'tea-matcha'],
+      ['ชาและมัทฉะ', 'tea-matcha'],
+      ['นมและโกโก้', 'milk-cocoa'],
+      ['น้ำผลไม้และโซดา', 'juice-soda'],
+      ['น้ำดื่มและเครื่องดื่มบรรจุขวด', 'bottled-drinks'],
       ['เบเกอรี่', 'bakery'],
       ['อาหารจานเดียว', 'single-dish'],
       ['ของทานเล่น', 'snacks'],
@@ -80,25 +87,23 @@ function normalizeData(raw) {
       ['เบียร์', 'beer'],
     ]);
     const migratedCategoryIds = new Map();
-    const hiddenDefaultCategories = new Set(['coffee', 'tea-drinks', 'bakery', 'single-dish']);
-    const categories = (raw.categories || d.categories).map((c) => ({
+    const hiddenDefaultCategories = new Set(['milk-cocoa', 'juice-soda', 'bottled-drinks', 'single-dish']);
+    const sourceCategories = raw.categories || d.categories;
+    const categories = sourceCategories.map((c) => ({
       ...c,
       id: categoryIds.get(c.name) || c.id,
       visible: c.visible === undefined ? !hiddenDefaultCategories.has(categoryIds.get(c.name) || c.id) : c.visible,
     }));
-    (raw.categories || d.categories).forEach((c) => migratedCategoryIds.set(c.id, categoryIds.get(c.name) || c.id));
-    // เมนูร้าน: ของทานเล่น → ขนม → น้ำอัดลม → เบียร์ โดยคงลำดับหมวดอื่นไว้เหมือนเดิม
-    const menuOrder = ['ของทานเล่น', 'ขนม', 'น้ำอัดลม', 'เบียร์'];
-    const menuNames = new Set(menuOrder);
-    const positions = categories.map((c, i) => (menuNames.has(c.name) ? i : -1)).filter((i) => i >= 0);
-    if (positions.length) {
-      const first = Math.min(...positions);
-      const insertAt = categories.slice(0, first).filter((c) => !menuNames.has(c.name)).length;
-      const ordered = menuOrder.map((name) => categories.find((c) => c.name === name)).filter(Boolean);
-      const rest = categories.filter((c) => !menuNames.has(c.name));
-      rest.splice(insertAt, 0, ...ordered);
-      categories.splice(0, categories.length, ...rest);
-    }
+    sourceCategories.forEach((c) => migratedCategoryIds.set(c.id, categoryIds.get(c.name) || c.id));
+    d.categories.forEach((c) => {
+      if (!categories.some((existing) => existing.id === c.id)) categories.push({ ...c });
+    });
+    const categoryOrder = d.categories.map((c) => c.id);
+    categories.sort((a, b) => {
+      const ai = categoryOrder.indexOf(a.id);
+      const bi = categoryOrder.indexOf(b.id);
+      return (ai < 0 ? categoryOrder.length : ai) - (bi < 0 ? categoryOrder.length : bi);
+    });
     const items = (raw.items || d.items).map((original) => {
       const i = { ...original, categoryId: migratedCategoryIds.get(original.categoryId) || original.categoryId };
       return i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
