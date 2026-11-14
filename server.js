@@ -27,8 +27,8 @@ function defaultData() {
       { id: 'c2', name: 'ชา & เครื่องดื่มอื่น ๆ', visible: false },
       { id: 'c3', name: 'เบเกอรี่', visible: false },
       { id: 'c4', name: 'อาหารจานเดียว', visible: false },
-      { id: 'c5', name: 'เบียร์', visible: true },
       { id: 'c6', name: 'ของทานเล่น', visible: true },
+      { id: 'c5', name: 'เบียร์', visible: true },
     ],
     // เมนูตัวอย่าง — แก้/ลบได้ในหน้าแอดมิน
     items: [
@@ -70,6 +70,13 @@ function normalizeData(raw) {
       ...c,
       visible: c.visible === undefined ? !hiddenDefaultCategories.has(c.id) : c.visible,
     }));
+    // เมนูร้าน: ให้ของทานเล่นอยู่ก่อนเบียร์ โดยคงลำดับหมวดอื่นทั้งหมดไว้เหมือนเดิม
+    const snackIndex = categories.findIndex((c) => c.name === 'ของทานเล่น');
+    const beerIndex = categories.findIndex((c) => c.name === 'เบียร์');
+    if (snackIndex > beerIndex && beerIndex >= 0) {
+      const [snacks] = categories.splice(snackIndex, 1);
+      categories.splice(beerIndex, 0, snacks);
+    }
     const items = (raw.items || d.items).map((i) => (
       i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
         && (i.imageScale === undefined || i.imageScale === 1.7)
