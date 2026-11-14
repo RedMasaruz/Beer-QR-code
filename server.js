@@ -28,6 +28,7 @@ function defaultData() {
       { id: 'c3', name: 'เบเกอรี่', visible: false },
       { id: 'c4', name: 'อาหารจานเดียว', visible: false },
       { id: 'c5', name: 'เบียร์', visible: true },
+      { id: 'c6', name: 'ของทานเล่น', visible: true },
     ],
     // เมนูตัวอย่าง — แก้/ลบได้ในหน้าแอดมิน
     items: [
@@ -41,6 +42,8 @@ function defaultData() {
       { id: 'i8', categoryId: 'c4', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
       { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องยาว', price: 60, available: true, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
+      { id: 'i11', categoryId: 'c6', name: 'เฟรนช์ฟรายส์', price: 30, available: true },
+      { id: 'i12', categoryId: 'c6', name: 'ลูกชิ้นทอด', price: 30, available: true },
     ],
     orders: [],
     refunds: [], // การคืนเงิน แยกเป็นรายการ
