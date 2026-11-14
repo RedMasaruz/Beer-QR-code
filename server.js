@@ -42,8 +42,8 @@ function defaultData() {
       { id: 'i6', categoryId: 'c3', name: 'ครัวซองต์เนย', price: 65, available: true },
       { id: 'i7', categoryId: 'c3', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
       { id: 'i8', categoryId: 'c4', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
-      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i13', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
+      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
       { id: 'i14', categoryId: 'c8', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24 },
       { id: 'i11', categoryId: 'c6', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
@@ -231,12 +231,23 @@ app.get('/api/menu', (req, res) => {
   const s = data.settings;
   const categories = data.categories.filter((c) => c.visible !== false);
   const visibleCategoryIds = new Set(categories.map((c) => c.id));
+  // หมวดเบียร์เรียงกระป๋องเล็กก่อนกระป๋องใหญ่ โดยคงตำแหน่งเมนูหมวดอื่นไว้
+  const beerItems = data.items
+    .filter((i) => i.categoryId === 'c5')
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const rank = (i) => (i.name.includes('320') ? 0 : i.name.includes('490') ? 1 : 2);
+      return rank(a.item) - rank(b.item) || a.index - b.index;
+    })
+    .map(({ item }) => item);
+  let beerIndex = 0;
+  const orderedItems = data.items.map((i) => (i.categoryId === 'c5' ? beerItems[beerIndex++] : i));
   res.json({
     shopName: s.shopName,
     tableCount: s.tableCount,
     pickupEnabled: s.pickupEnabled !== false,
     categories,
-    items: data.items
+    items: orderedItems
       .filter((i) => visibleCategoryIds.has(i.categoryId) && i.visible !== false)
       .map((i) => ({ ...i, available: i.available && (i.stockCount === null || i.stockCount === undefined || i.stockCount > 0) })),
   });
