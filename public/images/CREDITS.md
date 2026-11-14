@@ -1,5 +1,11 @@
 # Image credits
 
+## Leo beer can 320 ml (`beer-leo-320.jpg`)
+
+- Source: [Thailand Greenhouse Gas Management Organization — Leo beer can 320 ml](https://thaicarbonlabel.tgo.or.th/index.php?action=WkdWMFlXbHM&lang=TH&mod=Y0hKdlpIVmpkSE5mWVhCd2NtOTJZV3c9&param=TWpBeE1UTT0)
+- Product image: Khon Kaen Brewery Co., Ltd.
+- Change: used at the original dimensions for product identification
+
 ## French fries (`snack-fries.jpg`)
 
 - Source: [McDonalds-French-Fries-Plate.jpg](https://commons.wikimedia.org/wiki/File:McDonalds-French-Fries-Plate.jpg)
