@@ -18,7 +18,7 @@ function defaultData() {
   return {
     settings: {
       shopName: 'ร้านของฉัน',
-      tableCount: 10,
+      tableCount: 30,
       requirePaymentBeforeKitchen: false,
       pickupEnabled: true,
     },
