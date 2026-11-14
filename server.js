@@ -29,6 +29,7 @@ function defaultData() {
       { id: 'c4', name: 'อาหารจานเดียว', visible: false },
       { id: 'c6', name: 'ของทานเล่น', visible: true },
       { id: 'c7', name: 'ขนม', visible: true },
+      { id: 'c8', name: 'น้ำอัดลม', visible: true },
       { id: 'c5', name: 'เบียร์', visible: true },
     ],
     // เมนูตัวอย่าง — แก้/ลบได้ในหน้าแอดมิน
@@ -44,6 +45,7 @@ function defaultData() {
       { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
       { id: 'i13', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo.jpg' },
+      { id: 'i14', categoryId: 'c8', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24 },
       { id: 'i11', categoryId: 'c6', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
       { id: 'i12', categoryId: 'c6', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
     ],
@@ -72,17 +74,18 @@ function normalizeData(raw) {
       ...c,
       visible: c.visible === undefined ? !hiddenDefaultCategories.has(c.id) : c.visible,
     }));
-    // เมนูร้าน: ของทานเล่น → ขนม → เบียร์ โดยคงลำดับหมวดอื่นทั้งหมดไว้เหมือนเดิม
-    const moveBefore = (name, target) => {
-      const from = categories.findIndex((c) => c.name === name);
-      const to = categories.findIndex((c) => c.name === target);
-      if (from < 0 || to < 0 || from < to) return;
-      const [category] = categories.splice(from, 1);
-      categories.splice(categories.findIndex((c) => c.name === target), 0, category);
-    };
-    moveBefore('ของทานเล่น', 'เบียร์');
-    moveBefore('ของทานเล่น', 'ขนม');
-    moveBefore('ขนม', 'เบียร์');
+    // เมนูร้าน: ของทานเล่น → ขนม → น้ำอัดลม → เบียร์ โดยคงลำดับหมวดอื่นไว้เหมือนเดิม
+    const menuOrder = ['ของทานเล่น', 'ขนม', 'น้ำอัดลม', 'เบียร์'];
+    const menuNames = new Set(menuOrder);
+    const positions = categories.map((c, i) => (menuNames.has(c.name) ? i : -1)).filter((i) => i >= 0);
+    if (positions.length) {
+      const first = Math.min(...positions);
+      const insertAt = categories.slice(0, first).filter((c) => !menuNames.has(c.name)).length;
+      const ordered = menuOrder.map((name) => categories.find((c) => c.name === name)).filter(Boolean);
+      const rest = categories.filter((c) => !menuNames.has(c.name));
+      rest.splice(insertAt, 0, ...ordered);
+      categories.splice(0, categories.length, ...rest);
+    }
     const items = (raw.items || d.items).map((i) => (
       i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
         && (i.imageScale === undefined || i.imageScale === 1.7)
