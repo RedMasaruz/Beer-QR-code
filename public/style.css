@@ -175,6 +175,7 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .imgbox .noimg { width: 56px; height: 56px; border-radius: 10px; border: 1px dashed #c9b9a3; color: #a8987f; display: grid; place-items: center; font-size: 11px; text-align: center; line-height: 1.2; }
 .imgbox input[type=file] { display: none; }
 .category-hidden { opacity: .68; border-style: dashed; }
+.item-hidden { opacity: .55; background: #f3eee6; }
 .category-visibility { margin: 8px 0; font-weight: 600; }
 
 /* ---------- ตารางบัญชี ---------- */

@@ -41,8 +41,8 @@ function defaultData() {
       { id: 'i6', categoryId: 'c3', name: 'ครัวซองต์เนย', price: 65, available: true },
       { id: 'i7', categoryId: 'c3', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
       { id: 'i8', categoryId: 'c4', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
-      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องยาว', price: 60, available: true, defaultImage: '/images/beer-leo.jpg' },
-      { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
+      { id: 'i9', categoryId: 'c5', name: 'เบียร์ Leo กระป๋องยาว', price: 65, available: true, defaultImage: '/images/beer-leo.jpg' },
+      { id: 'i10', categoryId: 'c5', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
       { id: 'i11', categoryId: 'c6', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
       { id: 'i12', categoryId: 'c6', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
     ],
@@ -232,7 +232,7 @@ app.get('/api/menu', (req, res) => {
     tableCount: s.tableCount,
     pickupEnabled: s.pickupEnabled !== false,
     categories,
-    items: data.items.filter((i) => visibleCategoryIds.has(i.categoryId)),
+    items: data.items.filter((i) => visibleCategoryIds.has(i.categoryId) && i.visible !== false),
   });
 });
 
@@ -284,7 +284,7 @@ app.post('/api/orders', asyncRoute(async (req, res) => {
   for (const l of lines) {
     const it = data.items.find((x) => x.id === l.itemId);
     const qty = parseInt(l.qty, 10);
-    if (!it || !it.available) return res.status(400).json({ error: 'มีเมนูที่หมดหรือไม่พบ กรุณารีเฟรชหน้า' });
+    if (!it || !it.available || it.visible === false) return res.status(400).json({ error: 'มีเมนูที่หมด ซ่อนอยู่ หรือไม่พบ กรุณารีเฟรชหน้า' });
     if (!(qty >= 1 && qty <= 20)) return res.status(400).json({ error: 'จำนวนไม่ถูกต้อง' });
     const priceSatang = Math.round(it.price * 100); // ราคาใช้จากเซิร์ฟเวอร์เสมอ ไม่เชื่อฝั่งลูกค้า
     totalSatang += priceSatang * qty;
@@ -376,7 +376,7 @@ staff.post('/pos/orders', asyncRoute(async (req, res) => {
   for (const line of lines) {
     const item = data.items.find((x) => x.id === line.itemId);
     const qty = parseInt(line.qty, 10);
-    if (!item || !item.available) return res.status(400).json({ error: 'มีเมนูที่หมดหรือไม่พบ กรุณารีเฟรชหน้า' });
+    if (!item || !item.available || item.visible === false) return res.status(400).json({ error: 'มีเมนูที่หมด ซ่อนอยู่ หรือไม่พบ กรุณารีเฟรชหน้า' });
     if (!(qty >= 1 && qty <= 20)) return res.status(400).json({ error: 'จำนวนไม่ถูกต้อง' });
     const priceSatang = Math.round(item.price * 100);
     totalSatang += priceSatang * qty;
@@ -647,7 +647,10 @@ function readItem(b) {
   if (!name || name.length > 60) return { error: 'ชื่อเมนูไม่ถูกต้อง' };
   if (!(price >= 0 && price <= 100000)) return { error: 'ราคาไม่ถูกต้อง' };
   if (!data.categories.some((c) => c.id === b.categoryId)) return { error: 'ไม่พบหมวด' };
-  return { value: { name, price: Math.round(price * 100) / 100, categoryId: b.categoryId, available: b.available !== false } };
+  return { value: {
+    name, price: Math.round(price * 100) / 100, categoryId: b.categoryId,
+    available: b.available !== false, visible: b.visible !== false,
+  } };
 }
 staff.post('/items', requireAdmin, asyncRoute(async (req, res) => {
   const r = readItem(req.body);

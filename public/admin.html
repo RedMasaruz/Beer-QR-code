@@ -194,7 +194,7 @@ function renderMenu() {
   const catOpts = (sel) => cfg.categories.map((c) => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
   const html = cfg.categories.map((c) => {
     const items = cfg.items.filter((i) => i.categoryId === c.id).map((i) => `
-      <div class="inline" style="padding:8px 0;border-bottom:1px solid var(--line)" data-item="${esc(i.id)}">
+      <div class="inline ${i.visible === false ? 'item-hidden' : ''}" style="padding:8px 0;border-bottom:1px solid var(--line)" data-item="${esc(i.id)}">
         <div class="imgbox">
           ${i.image ? `<img class="thumb" src="/img/${esc(i.image)}" alt="">` : i.defaultImage ? `<img class="thumb" src="${esc(i.defaultImage)}" alt="">` : '<div class="noimg">ไม่มีรูป</div>'}
           <label class="btn ghost small" style="margin:0">${i.image || i.defaultImage ? 'เปลี่ยนรูป' : 'เพิ่มรูป'}<input type="file" accept="image/*" data-img="${esc(i.id)}"></label>
@@ -202,6 +202,7 @@ function renderMenu() {
         </div>
         <input type="text" class="f-name" value="${esc(i.name)}" style="flex:1;min-width:140px" maxlength="60">
         <input type="number" class="f-price" value="${i.price}" min="0" step="0.5" style="width:90px">
+        <label class="inline"><input type="checkbox" class="f-vis" ${i.visible !== false ? 'checked' : ''}> แสดง</label>
         <label class="inline"><input type="checkbox" class="f-av" ${i.available ? 'checked' : ''}> มีของ</label>
         <button class="btn small" data-save="${esc(i.id)}">บันทึก</button>
         <button class="btn ghost small" data-del="${esc(i.id)}">ลบ</button>
@@ -223,7 +224,7 @@ function renderMenu() {
   }).join('');
 
   $('p-menu').innerHTML = `<h2>เมนูและราคา</h2>
-    <p class="muted">ซ่อนหมวดได้โดยเอาติ๊ก "แสดงหมวดนี้ให้ลูกค้าเห็น" ออก ข้อมูลเมนูจะยังอยู่และเปิดกลับได้ตลอด<br>ติ๊ก "มีของ" ออกเมื่อของหมด ลูกค้าจะสั่งไม่ได้ทันที (ภายใน 1 นาที)<br>รูปอาหาร: เพิ่มเมนูก่อน แล้วกด "เพิ่มรูป" ที่แถวเมนู</p>
+    <p class="muted">ซ่อนหมวดได้โดยเอาติ๊ก "แสดงหมวดนี้ให้ลูกค้าเห็น" ออก หรือซ่อนเฉพาะเมนูโดยเอาติ๊ก "แสดง" ออก ข้อมูลจะยังอยู่และเปิดกลับได้ตลอด<br>ติ๊ก "มีของ" ออกเมื่อของหมด ลูกค้าจะเห็นคำว่า “หมด” แต่สั่งไม่ได้<br>รูปอาหาร: เพิ่มเมนูก่อน แล้วกด "เพิ่มรูป" ที่แถวเมนู</p>
     ${html}
     <div class="inline" style="margin-top:16px">
       <input type="text" id="newCat" placeholder="ชื่อหมวดใหม่" maxlength="40">
@@ -234,7 +235,8 @@ function renderMenu() {
   P.querySelectorAll('[data-save]').forEach((b) => (b.onclick = guard(async () => {
     const row = b.closest('[data-item]');
     await api('/api/staff/items/' + b.dataset.save, 'PUT', {
-      name: row.querySelector('.f-name').value, price: row.querySelector('.f-price').value, available: row.querySelector('.f-av').checked,
+      name: row.querySelector('.f-name').value, price: row.querySelector('.f-price').value,
+      visible: row.querySelector('.f-vis').checked, available: row.querySelector('.f-av').checked,
     });
     b.textContent = 'บันทึกแล้ว ✓'; setTimeout(() => (b.textContent = 'บันทึก'), 1200);
   })));
