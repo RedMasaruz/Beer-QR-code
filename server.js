@@ -28,6 +28,7 @@ function defaultData() {
       { id: 'c3', name: 'เบเกอรี่', visible: false },
       { id: 'c4', name: 'อาหารจานเดียว', visible: false },
       { id: 'c6', name: 'ของทานเล่น', visible: true },
+      { id: 'c7', name: 'ขนม', visible: true },
       { id: 'c5', name: 'เบียร์', visible: true },
     ],
     // เมนูตัวอย่าง — แก้/ลบได้ในหน้าแอดมิน
@@ -70,13 +71,17 @@ function normalizeData(raw) {
       ...c,
       visible: c.visible === undefined ? !hiddenDefaultCategories.has(c.id) : c.visible,
     }));
-    // เมนูร้าน: ให้ของทานเล่นอยู่ก่อนเบียร์ โดยคงลำดับหมวดอื่นทั้งหมดไว้เหมือนเดิม
-    const snackIndex = categories.findIndex((c) => c.name === 'ของทานเล่น');
-    const beerIndex = categories.findIndex((c) => c.name === 'เบียร์');
-    if (snackIndex > beerIndex && beerIndex >= 0) {
-      const [snacks] = categories.splice(snackIndex, 1);
-      categories.splice(beerIndex, 0, snacks);
-    }
+    // เมนูร้าน: ของทานเล่น → ขนม → เบียร์ โดยคงลำดับหมวดอื่นทั้งหมดไว้เหมือนเดิม
+    const moveBefore = (name, target) => {
+      const from = categories.findIndex((c) => c.name === name);
+      const to = categories.findIndex((c) => c.name === target);
+      if (from < 0 || to < 0 || from < to) return;
+      const [category] = categories.splice(from, 1);
+      categories.splice(categories.findIndex((c) => c.name === target), 0, category);
+    };
+    moveBefore('ของทานเล่น', 'เบียร์');
+    moveBefore('ของทานเล่น', 'ขนม');
+    moveBefore('ขนม', 'เบียร์');
     const items = (raw.items || d.items).map((i) => (
       i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
         && (i.imageScale === undefined || i.imageScale === 1.7)
