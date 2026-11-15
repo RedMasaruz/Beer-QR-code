@@ -126,6 +126,10 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .pickup-fields label { display: grid; gap: 6px; }
 .pickup-fields input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 .toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); background: #1f2328; color: #fff; padding: 10px 16px; border-radius: 12px; z-index: 50; max-width: 90vw; }
+.image-credit-link { padding-bottom: 24px; text-align: center; font-size: 12px; }
+.image-credit-link a, .credit-list a { color: var(--muted); }
+.credit-list { margin: 0; padding-left: 22px; }
+.credit-list li { margin: 8px 0; }
 
 /* ---------- staff ---------- */
 .bar { background: #3b2f2a; color: #fff; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }

@@ -47,18 +47,18 @@ function defaultData() {
       { id: 'food-bakery-butter-croissant', categoryId: 'food-bakery', name: 'ครัวซองต์เนย', price: 65, available: true },
       { id: 'food-bakery-blueberry-cheesecake', categoryId: 'food-bakery', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
       { id: 'food-single-dish-basil-rice-egg', categoryId: 'food-single-dish', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
-      { id: 'food-breakfast-egg-pan', categoryId: 'food-breakfast-sandwich', name: 'ไข่กระทะ', price: 55, available: true },
-      { id: 'food-breakfast-set', categoryId: 'food-breakfast-sandwich', name: 'ชุดอาหารเช้า', price: 70, available: true },
-      { id: 'food-sandwich-hot', categoryId: 'food-breakfast-sandwich', name: 'แซนด์วิชร้อน', price: 50, available: true, options: ['ปูอัดไข่กุ้ง', 'ทูน่า', 'แฮมชีส', 'ไข่ดาวและไส้กรอก'] },
-      { id: 'food-hotpot-set', categoryId: 'food-hotpot-grill', name: 'จิ้มจุ่ม', price: 250, available: true },
-      { id: 'food-grill-mixed-set', categoryId: 'food-hotpot-grill', name: 'ชุดรวมย่าง', price: 159, available: true, description: 'ซี่โครงหมูย่าง + สามชั้นย่าง + คอหมูย่าง' },
+      { id: 'food-breakfast-egg-pan', categoryId: 'food-breakfast-sandwich', name: 'ไข่กระทะ', price: 55, available: true, defaultImage: '/images/food-egg-pan.jpg' },
+      { id: 'food-breakfast-set', categoryId: 'food-breakfast-sandwich', name: 'ชุดอาหารเช้า', price: 70, available: true, defaultImage: '/images/food-breakfast-set.jpg' },
+      { id: 'food-sandwich-hot', categoryId: 'food-breakfast-sandwich', name: 'แซนด์วิชร้อน', price: 50, available: true, options: ['ปูอัดไข่กุ้ง', 'ทูน่า', 'แฮมชีส', 'ไข่ดาวและไส้กรอก'], defaultImage: '/images/food-hot-sandwich.jpg' },
+      { id: 'food-hotpot-set', categoryId: 'food-hotpot-grill', name: 'จิ้มจุ่ม', price: 250, available: true, defaultImage: '/images/food-hotpot.jpg' },
+      { id: 'food-grill-mixed-set', categoryId: 'food-hotpot-grill', name: 'ชุดรวมย่าง', price: 159, available: true, description: 'ซี่โครงหมูย่าง + สามชั้นย่าง + คอหมูย่าง', defaultImage: '/images/food-mixed-grill.jpg' },
       { id: 'drink-beer-leo-320', categoryId: 'drink-beer', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
       { id: 'drink-beer-leo-490', categoryId: 'drink-beer', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
       { id: 'drink-beer-chang-long', categoryId: 'drink-beer', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
       { id: 'drink-soft-coke-can', categoryId: 'drink-soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24, defaultImage: '/images/coke-can.jpg' },
       { id: 'food-snack-fries', categoryId: 'food-snacks', name: 'เฟรนช์ฟรายส์', price: 39, available: true, defaultImage: '/images/snack-fries.jpg' },
       { id: 'food-snack-meatball-skewer', categoryId: 'food-snacks', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
-      { id: 'food-snack-chicken-nuggets', categoryId: 'food-snacks', name: 'นักเก็ตไก่', price: 49, available: true },
+      { id: 'food-snack-chicken-nuggets', categoryId: 'food-snacks', name: 'นักเก็ตไก่', price: 49, available: true, defaultImage: '/images/food-chicken-nuggets.jpg' },
     ],
     orders: [],
     refunds: [], // การคืนเงิน แยกเป็นรายการ
@@ -125,6 +125,7 @@ function normalizeData(raw) {
       const bi = categoryOrder.indexOf(b.id);
       return (ai < 0 ? categoryOrder.length : ai) - (bi < 0 ? categoryOrder.length : bi);
     });
+    const defaultItemsByName = new Map(d.items.map((i) => [i.name, i]));
     const itemIds = new Map(d.items.map((i) => [i.name, i.id]));
     const migratedItemIds = new Map();
     const sourceItems = raw.items || d.items;
@@ -143,7 +144,7 @@ function normalizeData(raw) {
       customItemNos.set(categoryId, n);
       usedItemIds.add(id);
       migratedItemIds.set(original.id, id);
-      let i = { ...original, id, categoryId };
+      let i = { ...(defaultItemsByName.get(original.name) || {}), ...original, id, categoryId };
       if (i.name === 'เฟรนช์ฟรายส์' && i.price === 30) i = { ...i, price: 39 };
       return i.name === 'เบียร์ช้าง กระป๋องยาว' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
         && (i.imageScale === undefined || i.imageScale === 1.7)
