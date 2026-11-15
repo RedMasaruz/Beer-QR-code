@@ -6,7 +6,7 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /api/menu
+    healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
       - key: DATA_FILE

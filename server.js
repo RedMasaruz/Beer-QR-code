@@ -294,6 +294,7 @@ app.get('/api/me', (req, res) => {
   const s = sessionOf(req);
   res.json({ staff: !!s, role: s ? s.role : null });
 });
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // ---- เมนู (สาธารณะ)
 app.get('/api/menu', (req, res) => {
