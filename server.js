@@ -23,34 +23,42 @@ function defaultData() {
       pickupEnabled: true,
     },
     categories: [
-      { id: 'coffee', name: 'กาแฟ', visible: true },
-      { id: 'tea-matcha', name: 'ชาและมัทฉะ', visible: true },
-      { id: 'milk-cocoa', name: 'นมและโกโก้', visible: false },
-      { id: 'juice-soda', name: 'น้ำผลไม้และโซดา', visible: false },
-      { id: 'bottled-drinks', name: 'น้ำดื่มและเครื่องดื่มบรรจุขวด', visible: false },
-      { id: 'bakery', name: 'เบเกอรี่', visible: true },
-      { id: 'single-dish', name: 'อาหารจานเดียว', visible: false },
-      { id: 'snacks', name: 'ของทานเล่น', visible: true },
-      { id: 'sweets', name: 'ขนม', visible: true },
-      { id: 'soft-drinks', name: 'น้ำอัดลม', visible: true },
-      { id: 'beer', name: 'เบียร์', visible: true },
+      { id: 'food-breakfast-sandwich', name: 'อาหารเช้าและแซนด์วิช', visible: true },
+      { id: 'food-hotpot-grill', name: 'จิ้มจุ่มและปิ้งย่าง', visible: true },
+      { id: 'food-snacks', name: 'ของทานเล่น', visible: true },
+      { id: 'drink-coffee', name: 'กาแฟ', visible: true },
+      { id: 'drink-tea-matcha', name: 'ชาและมัทฉะ', visible: true },
+      { id: 'drink-milk-cocoa', name: 'นมและโกโก้', visible: false },
+      { id: 'drink-juice-soda', name: 'น้ำผลไม้และโซดา', visible: false },
+      { id: 'drink-bottled', name: 'น้ำดื่มและเครื่องดื่มบรรจุขวด', visible: false },
+      { id: 'food-bakery', name: 'เบเกอรี่', visible: true },
+      { id: 'food-single-dish', name: 'อาหารจานเดียว', visible: false },
+      { id: 'food-packaged-snacks', name: 'ขนม', visible: true },
+      { id: 'drink-soft-drinks', name: 'น้ำอัดลม', visible: true },
+      { id: 'drink-beer', name: 'เบียร์', visible: true },
     ],
     // เมนูตัวอย่าง — แก้/ลบได้ในหน้าแอดมิน
     items: [
-      { id: 'i1', categoryId: 'coffee', name: 'อเมริกาโน่เย็น', price: 55, available: true },
-      { id: 'i2', categoryId: 'coffee', name: 'ลาเต้ร้อน', price: 65, available: true },
-      { id: 'i3', categoryId: 'coffee', name: 'คาปูชิโน่เย็น', price: 70, available: true },
-      { id: 'i4', categoryId: 'tea-matcha', name: 'ชาไทยเย็น', price: 50, available: true },
-      { id: 'i5', categoryId: 'tea-matcha', name: 'มัทฉะลาเต้', price: 75, available: true },
-      { id: 'i6', categoryId: 'bakery', name: 'ครัวซองต์เนย', price: 65, available: true },
-      { id: 'i7', categoryId: 'bakery', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
-      { id: 'i8', categoryId: 'single-dish', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
-      { id: 'i13', categoryId: 'beer', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
-      { id: 'i9', categoryId: 'beer', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
-      { id: 'i10', categoryId: 'beer', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
-      { id: 'i14', categoryId: 'soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24, defaultImage: '/images/coke-can.jpg' },
-      { id: 'i11', categoryId: 'snacks', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
-      { id: 'i12', categoryId: 'snacks', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
+      { id: 'drink-coffee-americano-iced', categoryId: 'drink-coffee', name: 'อเมริกาโน่เย็น', price: 55, available: true },
+      { id: 'drink-coffee-latte-hot', categoryId: 'drink-coffee', name: 'ลาเต้ร้อน', price: 65, available: true },
+      { id: 'drink-coffee-cappuccino-iced', categoryId: 'drink-coffee', name: 'คาปูชิโน่เย็น', price: 70, available: true },
+      { id: 'drink-tea-thai-iced', categoryId: 'drink-tea-matcha', name: 'ชาไทยเย็น', price: 50, available: true },
+      { id: 'drink-matcha-latte', categoryId: 'drink-tea-matcha', name: 'มัทฉะลาเต้', price: 75, available: true },
+      { id: 'food-bakery-butter-croissant', categoryId: 'food-bakery', name: 'ครัวซองต์เนย', price: 65, available: true },
+      { id: 'food-bakery-blueberry-cheesecake', categoryId: 'food-bakery', name: 'ชีสเค้กบลูเบอร์รี่', price: 95, available: true },
+      { id: 'food-single-dish-basil-rice-egg', categoryId: 'food-single-dish', name: 'ข้าวผัดกะเพราไข่ดาว', price: 69, available: true },
+      { id: 'food-breakfast-egg-pan', categoryId: 'food-breakfast-sandwich', name: 'ไข่กระทะ', price: 55, available: true },
+      { id: 'food-breakfast-set', categoryId: 'food-breakfast-sandwich', name: 'ชุดอาหารเช้า', price: 70, available: true },
+      { id: 'food-sandwich-hot', categoryId: 'food-breakfast-sandwich', name: 'แซนด์วิชร้อน', price: 50, available: true, options: ['ปูอัดไข่กุ้ง', 'ทูน่า', 'แฮมชีส', 'ไข่ดาวและไส้กรอก'] },
+      { id: 'food-hotpot-set', categoryId: 'food-hotpot-grill', name: 'จิ้มจุ่ม', price: 250, available: true },
+      { id: 'food-grill-mixed-set', categoryId: 'food-hotpot-grill', name: 'ชุดรวมย่าง', price: 159, available: true, description: 'ซี่โครงหมูย่าง + สามชั้นย่าง + คอหมูย่าง' },
+      { id: 'drink-beer-leo-320', categoryId: 'drink-beer', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
+      { id: 'drink-beer-leo-490', categoryId: 'drink-beer', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
+      { id: 'drink-beer-chang-long', categoryId: 'drink-beer', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
+      { id: 'drink-soft-coke-can', categoryId: 'drink-soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24, defaultImage: '/images/coke-can.jpg' },
+      { id: 'food-snack-fries', categoryId: 'food-snacks', name: 'เฟรนช์ฟรายส์', price: 39, available: true, defaultImage: '/images/snack-fries.jpg' },
+      { id: 'food-snack-meatball-skewer', categoryId: 'food-snacks', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
+      { id: 'food-snack-chicken-nuggets', categoryId: 'food-snacks', name: 'นักเก็ตไก่', price: 49, available: true },
     ],
     orders: [],
     refunds: [], // การคืนเงิน แยกเป็นรายการ
@@ -73,28 +81,41 @@ function normalizeData(raw) {
     const d = defaultData();
     const settings = { ...d.settings, ...(raw.settings || {}) };
     const categoryIds = new Map([
-      ['กาแฟ', 'coffee'],
-      ['ชา & เครื่องดื่มอื่น ๆ', 'tea-matcha'],
-      ['ชาและมัทฉะ', 'tea-matcha'],
-      ['นมและโกโก้', 'milk-cocoa'],
-      ['น้ำผลไม้และโซดา', 'juice-soda'],
-      ['น้ำดื่มและเครื่องดื่มบรรจุขวด', 'bottled-drinks'],
-      ['เบเกอรี่', 'bakery'],
-      ['อาหารจานเดียว', 'single-dish'],
-      ['ของทานเล่น', 'snacks'],
-      ['ขนม', 'sweets'],
-      ['น้ำอัดลม', 'soft-drinks'],
-      ['เบียร์', 'beer'],
+      ['อาหารเช้าและแซนด์วิช', 'food-breakfast-sandwich'],
+      ['จิ้มจุ่มและปิ้งย่าง', 'food-hotpot-grill'],
+      ['กาแฟ', 'drink-coffee'],
+      ['ชา & เครื่องดื่มอื่น ๆ', 'drink-tea-matcha'],
+      ['ชาและมัทฉะ', 'drink-tea-matcha'],
+      ['นมและโกโก้', 'drink-milk-cocoa'],
+      ['น้ำผลไม้และโซดา', 'drink-juice-soda'],
+      ['น้ำดื่มและเครื่องดื่มบรรจุขวด', 'drink-bottled'],
+      ['เบเกอรี่', 'food-bakery'],
+      ['อาหารจานเดียว', 'food-single-dish'],
+      ['ของทานเล่น', 'food-snacks'],
+      ['ขนม', 'food-packaged-snacks'],
+      ['น้ำอัดลม', 'drink-soft-drinks'],
+      ['เบียร์', 'drink-beer'],
     ]);
     const migratedCategoryIds = new Map();
-    const hiddenDefaultCategories = new Set(['milk-cocoa', 'juice-soda', 'bottled-drinks', 'single-dish']);
+    const hiddenDefaultCategories = new Set(['drink-milk-cocoa', 'drink-juice-soda', 'drink-bottled', 'food-single-dish']);
     const sourceCategories = raw.categories || d.categories;
-    const categories = sourceCategories.map((c) => ({
-      ...c,
-      id: categoryIds.get(c.name) || c.id,
-      visible: c.visible === undefined ? !hiddenDefaultCategories.has(categoryIds.get(c.name) || c.id) : c.visible,
-    }));
-    sourceCategories.forEach((c) => migratedCategoryIds.set(c.id, categoryIds.get(c.name) || c.id));
+    const usedCategoryIds = new Set(d.categories.map((c) => c.id));
+    let customCategoryNo = 1;
+    const categories = sourceCategories.map((c) => {
+      let id = categoryIds.get(c.name);
+      if (!id && /^category-custom-\d{3}$/.test(c.id) && !usedCategoryIds.has(c.id)) id = c.id;
+      while (!id) {
+        const candidate = `category-custom-${String(customCategoryNo++).padStart(3, '0')}`;
+        if (!usedCategoryIds.has(candidate)) id = candidate;
+      }
+      usedCategoryIds.add(id);
+      migratedCategoryIds.set(c.id, id);
+      return {
+        ...c,
+        id,
+        visible: c.visible === undefined ? !hiddenDefaultCategories.has(id) : c.visible,
+      };
+    });
     d.categories.forEach((c) => {
       if (!categories.some((existing) => existing.id === c.id)) categories.push({ ...c });
     });
@@ -104,19 +125,43 @@ function normalizeData(raw) {
       const bi = categoryOrder.indexOf(b.id);
       return (ai < 0 ? categoryOrder.length : ai) - (bi < 0 ? categoryOrder.length : bi);
     });
-    const items = (raw.items || d.items).map((original) => {
-      const i = { ...original, categoryId: migratedCategoryIds.get(original.categoryId) || original.categoryId };
-      return i.id === 'i10' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
+    const itemIds = new Map(d.items.map((i) => [i.name, i.id]));
+    const migratedItemIds = new Map();
+    const sourceItems = raw.items || d.items;
+    const usedItemIds = new Set(d.items.map((i) => i.id));
+    const customItemNos = new Map();
+    const items = sourceItems.map((original) => {
+      const categoryId = migratedCategoryIds.get(original.categoryId) || original.categoryId;
+      let id = itemIds.get(original.name);
+      if (!id && new RegExp(`^${categoryId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-item-\\d{3}$`).test(original.id)
+        && !usedItemIds.has(original.id)) id = original.id;
+      let n = customItemNos.get(categoryId) || 1;
+      while (!id) {
+        const candidate = `${categoryId}-item-${String(n++).padStart(3, '0')}`;
+        if (!usedItemIds.has(candidate)) id = candidate;
+      }
+      customItemNos.set(categoryId, n);
+      usedItemIds.add(id);
+      migratedItemIds.set(original.id, id);
+      let i = { ...original, id, categoryId };
+      if (i.name === 'เฟรนช์ฟรายส์' && i.price === 30) i = { ...i, price: 39 };
+      return i.name === 'เบียร์ช้าง กระป๋องยาว' && !i.image && i.defaultImage === '/images/beer-chang.jpg'
         && (i.imageScale === undefined || i.imageScale === 1.7)
         ? { ...i, imageScale: 1.1 }
         : i;
+    });
+    d.items.forEach((i) => {
+      if (!items.some((existing) => existing.id === i.id)) items.push({ ...i });
     });
     delete settings.promptpayId; // เลิกเก็บเลขบัญชี: ใช้ QR บัญชีร้านที่พนักงานถือแทน
     return {
       settings,
       categories,
       items,
-      orders: (raw.orders || []).map(migrateOrder),
+      orders: (raw.orders || []).map((o) => migrateOrder({
+        ...o,
+        items: (o.items || []).map((line) => ({ ...line, itemId: migratedItemIds.get(line.itemId) || line.itemId })),
+      })),
       refunds: raw.refunds || [],
       closes: raw.closes || {},
       log: raw.log || [],
@@ -132,6 +177,11 @@ let data;
 const save = () => persistence.save(data);
 
 const uid = () => crypto.randomBytes(5).toString('hex');
+function nextScopedId(prefix, rows) {
+  let n = 1, id;
+  do { id = `${prefix}-${String(n++).padStart(3, '0')}`; } while (rows.some((row) => row.id === id));
+  return id;
+}
 const bkkDate = (t = Date.now()) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
 const baht = (satang) => satang / 100;
 function logEvent(action, orderId, detail) {
@@ -252,7 +302,7 @@ app.get('/api/menu', (req, res) => {
   const visibleCategoryIds = new Set(categories.map((c) => c.id));
   // หมวดเบียร์เรียงกระป๋องเล็กก่อนกระป๋องใหญ่ โดยคงตำแหน่งเมนูหมวดอื่นไว้
   const beerItems = data.items
-    .filter((i) => i.categoryId === 'beer')
+    .filter((i) => i.categoryId === 'drink-beer')
     .map((item, index) => ({ item, index }))
     .sort((a, b) => {
       const rank = (i) => (i.name.includes('320') ? 0 : i.name.includes('490') ? 1 : 2);
@@ -260,7 +310,7 @@ app.get('/api/menu', (req, res) => {
     })
     .map(({ item }) => item);
   let beerIndex = 0;
-  const orderedItems = data.items.map((i) => (i.categoryId === 'beer' ? beerItems[beerIndex++] : i));
+  const orderedItems = data.items.map((i) => (i.categoryId === 'drink-beer' ? beerItems[beerIndex++] : i));
   res.json({
     shopName: s.shopName,
     tableCount: s.tableCount,
@@ -326,10 +376,14 @@ app.post('/api/orders', asyncRoute(async (req, res) => {
     const needed = (stockNeeded.get(it.id) || 0) + qty;
     if (Number.isInteger(it.stockCount) && needed > it.stockCount)
       return res.status(409).json({ error: `${it.name} เหลือเพียง ${it.stockCount} ชิ้น` });
+    const choices = Array.isArray(it.options) ? it.options : [];
+    const option = String(l.option || '').trim();
+    if (choices.length && !choices.includes(option))
+      return res.status(400).json({ error: `กรุณาเลือกตัวเลือกของ ${it.name}` });
     stockNeeded.set(it.id, needed);
     const priceSatang = Math.round(it.price * 100); // ราคาใช้จากเซิร์ฟเวอร์เสมอ ไม่เชื่อฝั่งลูกค้า
     totalSatang += priceSatang * qty;
-    items.push({ itemId: it.id, name: it.name, price: it.price, qty, note: String(l.note || '').slice(0, 100) });
+    items.push({ itemId: it.id, name: it.name, price: it.price, qty, option: option || null, note: String(l.note || '').slice(0, 100) });
   }
 
   const today = bkkDate();
@@ -420,7 +474,7 @@ staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
 // ---- รับเงิน (บันทึกวิธีจ่ายและเวลา) / ยกเลิกการรับเงิน
 const METHODS = ['promptpay', 'cash', 'other'];
 const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
-const INSTANT_POS_CATEGORIES = new Set(['beer', 'soft-drinks', 'sweets', 'bottled-drinks', 'bakery']);
+const INSTANT_POS_CATEGORIES = new Set(['drink-beer', 'drink-soft-drinks', 'food-packaged-snacks', 'drink-bottled', 'food-bakery']);
 
 // ---- POS หน้าเคาน์เตอร์: พนักงานบันทึกการขายและรับเงินในครั้งเดียว
 staff.post('/pos/orders', asyncRoute(async (req, res) => {
@@ -441,11 +495,15 @@ staff.post('/pos/orders', asyncRoute(async (req, res) => {
     const needed = (stockNeeded.get(item.id) || 0) + qty;
     if (Number.isInteger(item.stockCount) && needed > item.stockCount)
       return res.status(409).json({ error: `${item.name} เหลือเพียง ${item.stockCount} ชิ้น` });
+    const choices = Array.isArray(item.options) ? item.options : [];
+    const option = String(line.option || '').trim();
+    if (choices.length && !choices.includes(option))
+      return res.status(400).json({ error: `กรุณาเลือกตัวเลือกของ ${item.name}` });
     stockNeeded.set(item.id, needed);
     if (!INSTANT_POS_CATEGORIES.has(item.categoryId)) requiresPreparation = true;
     const priceSatang = Math.round(item.price * 100);
     totalSatang += priceSatang * qty;
-    items.push({ itemId: item.id, name: item.name, price: item.price, qty, note: '' });
+    items.push({ itemId: item.id, name: item.name, price: item.price, qty, option: option || null, note: '' });
   }
 
   const now = Date.now(), today = bkkDate(now);
@@ -643,8 +701,8 @@ staff.get('/export/:kind', requireAdmin, asyncRoute(async (req, res) => {
       ['pickup', 'pos'].includes(o.orderType) ? o.queueNo || '' : o.table, o.customerName || '', STATUS_TH[o.status] || o.status, baht(o.totalSatang).toFixed(2),
       o.paid ? 'ใช่' : 'ไม่', o.paid ? METHOD_TH[methodOf(o.paymentMethod)] : '', o.paid && o.paidAt ? bkkTime(o.paidAt) : '', baht(refundedSatang(o.id)).toFixed(2)]);
   } else if (kind === 'order_items') {
-    header = ['เลขที่ออเดอร์', 'สถานะออเดอร์', 'ชื่อเมนู', 'ราคาต่อหน่วย(บาท)', 'จำนวน', 'รวม(บาท)', 'หมายเหตุ'];
-    rows = orders.flatMap((o) => o.items.map((i) => [orderNo(o), STATUS_TH[o.status] || o.status, i.name, Number(i.price).toFixed(2), i.qty, (Math.round(i.price * 100) * i.qty / 100).toFixed(2), i.note || '']));
+    header = ['เลขที่ออเดอร์', 'สถานะออเดอร์', 'ชื่อเมนู', 'ตัวเลือก', 'ราคาต่อหน่วย(บาท)', 'จำนวน', 'รวม(บาท)', 'หมายเหตุ'];
+    rows = orders.flatMap((o) => o.items.map((i) => [orderNo(o), STATUS_TH[o.status] || o.status, i.name, i.option || '', Number(i.price).toFixed(2), i.qty, (Math.round(i.price * 100) * i.qty / 100).toFixed(2), i.note || '']));
   } else if (kind === 'refunds') {
     header = ['เลขที่ออเดอร์', 'ยอดคืน(บาท)', 'วิธีคืน', 'เหตุผล', 'วันเวลาที่คืน'];
     rows = data.refunds.filter((f) => inRange(bkkDate(f.at), r)).sort((a, b) => a.at - b.at).map((f) => {
@@ -692,7 +750,7 @@ staff.put('/settings', requireAdmin, asyncRoute(async (req, res) => {
 staff.post('/categories', requireAdmin, asyncRoute(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name || name.length > 40) return res.status(400).json({ error: 'ชื่อหมวดไม่ถูกต้อง' });
-  const c = { id: uid(), name, visible: true };
+  const c = { id: nextScopedId('category-custom', data.categories), name, visible: true };
   data.categories.push(c);
   await save();
   res.json(c);
@@ -720,8 +778,12 @@ staff.delete('/categories/:id', requireAdmin, asyncRoute(async (req, res) => {
 function readItem(b) {
   const name = String(b.name || '').trim();
   const price = Number(b.price);
+  const description = String(b.description || '').trim().slice(0, 120);
+  const rawOptions = Array.isArray(b.options) ? b.options : String(b.options || '').split(/[\n/,]/);
+  const options = [...new Set(rawOptions.map((x) => String(x).trim()).filter(Boolean))];
   if (!name || name.length > 60) return { error: 'ชื่อเมนูไม่ถูกต้อง' };
   if (!(price >= 0 && price <= 100000)) return { error: 'ราคาไม่ถูกต้อง' };
+  if (options.length > 20 || options.some((x) => x.length > 40)) return { error: 'ตัวเลือกเมนูยาวหรือมากเกินไป' };
   if (!data.categories.some((c) => c.id === b.categoryId)) return { error: 'ไม่พบหมวด' };
   const stockCount = b.stockCount === '' || b.stockCount === null || b.stockCount === undefined
     ? null : Number(b.stockCount);
@@ -729,13 +791,13 @@ function readItem(b) {
     return { error: 'จำนวนสต็อกต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000' };
   return { value: {
     name, price: Math.round(price * 100) / 100, categoryId: b.categoryId,
-    available: b.available !== false, visible: b.visible !== false, stockCount,
+    description, options, available: b.available !== false, visible: b.visible !== false, stockCount,
   } };
 }
 staff.post('/items', requireAdmin, asyncRoute(async (req, res) => {
   const r = readItem(req.body);
   if (r.error) return res.status(400).json({ error: r.error });
-  const it = { id: uid(), ...r.value };
+  const it = { id: nextScopedId(`${r.value.categoryId}-item`, data.items), ...r.value };
   data.items.push(it);
   await save();
   res.json(it);

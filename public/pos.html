@@ -40,11 +40,17 @@
 </main>
 <button class="btn pos-mobile-cart" id="mobileCart"><span id="mobileCount">ยังไม่มีรายการ</span><span id="mobileTotal">฿0</span></button>
 
+<dialog id="optionDlg"><div class="dlg">
+  <h2 id="optionTitle">เลือกตัวเลือก</h2>
+  <div id="optionChoices" class="option-choices"></div>
+  <button class="btn ghost" id="closeOption">ยกเลิก</button>
+</div></dialog>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
-let menu = null, activeCat = null, cart = {};
+let menu = null, activeCat = null, cart = {}, choosingItem = null;
 
 async function api(url, opts) {
   const r = await fetch(url, opts);
@@ -54,16 +60,33 @@ async function api(url, opts) {
   return j;
 }
 
-function lines() {
-  return Object.entries(cart).map(([id, qty]) => ({ item: menu.items.find((x) => x.id === id), qty })).filter((x) => x.item);
-}
+const lineKey = (itemId, option = '') => `${itemId}|${encodeURIComponent(option)}`;
+function lines() { return Object.entries(cart).map(([key, v]) => ({ key, item: menu.items.find((x) => x.id === v.itemId), ...v })).filter((x) => x.item); }
 function sum() { return lines().reduce((n, x) => n + x.item.price * x.qty, 0); }
 
-function change(id, amount) {
-  const next = Math.max(0, Math.min(20, (cart[id] || 0) + amount));
-  if (next) cart[id] = next; else delete cart[id];
+function change(key, amount) {
+  const current = cart[key];
+  const next = Math.max(0, Math.min(20, (current ? current.qty : 0) + amount));
+  if (!next) delete cart[key];
+  else if (current) current.qty = next;
+  else cart[key] = { itemId: key.split('|')[0], option: '', qty: next };
   renderProducts(); renderCart();
 }
+
+function chooseOption(itemId) {
+  choosingItem = menu.items.find((i) => i.id === itemId);
+  if (!choosingItem) return;
+  $('optionTitle').textContent = `เลือกไส้ ${choosingItem.name}`;
+  $('optionChoices').innerHTML = choosingItem.options.map((option) => `<button class="btn ghost" data-option="${esc(option)}">${esc(option)}</button>`).join('');
+  $('optionChoices').querySelectorAll('[data-option]').forEach((b) => (b.onclick = () => {
+    const option = b.dataset.option, key = lineKey(choosingItem.id, option);
+    if (cart[key]) cart[key].qty = Math.min(20, cart[key].qty + 1);
+    else cart[key] = { itemId: choosingItem.id, option, qty: 1 };
+    $('optionDlg').close(); renderProducts(); renderCart();
+  }));
+  $('optionDlg').showModal();
+}
+$('closeOption').onclick = () => $('optionDlg').close();
 
 function renderProducts() {
   $('chips').innerHTML = menu.categories.map((c) => `<button class="chip ${c.id === activeCat ? 'on' : ''}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join('');
@@ -71,21 +94,23 @@ function renderProducts() {
   const items = menu.items.filter((x) => x.categoryId === activeCat);
   $('products').innerHTML = items.length ? items.map((item) => {
     const src = item.image ? `/img/${esc(item.image)}` : item.defaultImage ? esc(item.defaultImage) : '';
-    const qty = cart[item.id] || 0;
-    return `<button class="pos-product ${item.available ? '' : 'out'}" data-item="${esc(item.id)}" ${item.available ? '' : 'disabled'}>
+    const qty = Object.values(cart).filter((l) => l.itemId === item.id).reduce((n, l) => n + l.qty, 0);
+    const hasOptions = Array.isArray(item.options) && item.options.length;
+    return `<button class="pos-product ${item.available ? '' : 'out'}" ${hasOptions ? `data-choose="${esc(item.id)}"` : `data-item="${esc(lineKey(item.id))}"`} ${item.available ? '' : 'disabled'}>
       ${src ? `<img src="${src}" alt="" style="transform:scale(${Number(item.imageScale) || 1})">` : '<span class="pos-noimg">ไม่มีรูป</span>'}
-      <span class="pos-product-body"><b>${esc(item.name)}</b><span>${fmt(item.price)}${Number.isInteger(item.stockCount) ? ` · เหลือ ${item.stockCount}` : ''}</span></span>
+      <span class="pos-product-body"><b>${esc(item.name)}</b><span>${fmt(item.price)}${Number.isInteger(item.stockCount) ? ` · เหลือ ${item.stockCount}` : ''}</span>${item.description ? `<span>${esc(item.description)}</span>` : ''}${hasOptions ? '<span>แตะเพื่อเลือกไส้</span>' : ''}</span>
       ${qty ? `<span class="pos-product-qty">${qty}</span>` : ''}
     </button>`;
   }).join('') : '<p class="muted">ยังไม่มีเมนูในหมวดนี้</p>';
   $('products').querySelectorAll('[data-item]').forEach((b) => (b.onclick = () => change(b.dataset.item, 1)));
+  $('products').querySelectorAll('[data-choose]').forEach((b) => (b.onclick = () => chooseOption(b.dataset.choose)));
 }
 
 function renderCart() {
   const list = lines();
   $('cartRows').innerHTML = list.length ? list.map((x) => `<div class="pos-cart-row">
-    <div><b>${esc(x.item.name)}</b><span class="muted">${fmt(x.item.price * x.qty)}</span></div>
-    <div class="qty"><button data-sub="${esc(x.item.id)}">−</button><b>${x.qty}</b><button class="add" data-add="${esc(x.item.id)}">+</button></div>
+    <div><b>${esc(x.item.name)}</b>${x.option ? `<span>${esc(x.option)}</span>` : ''}<span class="muted">${fmt(x.item.price * x.qty)}</span></div>
+    <div class="qty"><button data-sub="${esc(x.key)}">−</button><b>${x.qty}</b><button class="add" data-add="${esc(x.key)}">+</button></div>
   </div>`).join('') : '<p class="muted">แตะสินค้าเพื่อเพิ่มรายการ</p>';
   $('cartRows').querySelectorAll('[data-sub]').forEach((b) => (b.onclick = () => change(b.dataset.sub, -1)));
   $('cartRows').querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => change(b.dataset.add, 1)));
@@ -122,7 +147,7 @@ $('chargeBtn').onclick = async () => {
     const order = await api('/api/staff/pos/orders', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        items: lines().map((x) => ({ itemId: x.item.id, qty: x.qty })),
+        items: lines().map((x) => ({ itemId: x.item.id, qty: x.qty, option: x.option || '' })),
         method,
       }),
     });

@@ -201,6 +201,8 @@ function renderMenu() {
           ${i.image ? `<button class="btn ghost small" data-delimg="${esc(i.id)}">ลบรูป</button>` : ''}
         </div>
         <input type="text" class="f-name" value="${esc(i.name)}" style="flex:1;min-width:140px" maxlength="60">
+        <input type="text" class="f-desc" value="${esc(i.description || '')}" style="flex:1;min-width:180px" maxlength="120" placeholder="รายละเอียดเมนู">
+        <input type="text" class="f-options" value="${esc((i.options || []).join(' / '))}" style="flex:1;min-width:180px" maxlength="400" placeholder="ตัวเลือก คั่นด้วย /">
         <input type="number" class="f-price" value="${i.price}" min="0" step="0.5" style="width:90px">
         <input type="number" class="f-stock" value="${i.stockCount ?? ''}" min="0" step="1" style="width:95px" placeholder="สต็อก ∞" title="จำนวนสต็อก (เว้นว่าง = ไม่จำกัด)">
         <label class="inline"><input type="checkbox" class="f-vis" ${i.visible !== false ? 'checked' : ''}> แสดง</label>
@@ -219,6 +221,7 @@ function renderMenu() {
       <div class="inline" style="margin-top:10px" data-new="${esc(c.id)}">
         <input type="text" class="n-name" placeholder="ชื่อเมนูใหม่" style="flex:1;min-width:140px" maxlength="60">
         <input type="number" class="n-price" placeholder="ราคา" min="0" step="0.5" style="width:90px">
+        <input type="text" class="n-options" placeholder="ตัวเลือก (ถ้ามี) คั่นด้วย /" style="flex:1;min-width:180px" maxlength="400">
         <button class="btn small" data-add="${esc(c.id)}">+ เพิ่มเมนู</button>
       </div>
     </div>`;
@@ -237,6 +240,7 @@ function renderMenu() {
     const row = b.closest('[data-item]');
     await api('/api/staff/items/' + b.dataset.save, 'PUT', {
       name: row.querySelector('.f-name').value, price: row.querySelector('.f-price').value,
+      description: row.querySelector('.f-desc').value, options: row.querySelector('.f-options').value,
       stockCount: row.querySelector('.f-stock').value,
       visible: row.querySelector('.f-vis').checked, available: row.querySelector('.f-av').checked,
     });
@@ -252,7 +256,7 @@ function renderMenu() {
   })));
   P.querySelectorAll('[data-add]').forEach((b) => (b.onclick = guard(async () => {
     const box = b.closest('[data-new]');
-    await api('/api/staff/items', 'POST', { name: box.querySelector('.n-name').value, price: box.querySelector('.n-price').value, categoryId: b.dataset.add, available: true });
+    await api('/api/staff/items', 'POST', { name: box.querySelector('.n-name').value, price: box.querySelector('.n-price').value, options: box.querySelector('.n-options').value, categoryId: b.dataset.add, available: true });
     await show('menu');
   })));
   P.querySelectorAll('[data-ren]').forEach((b) => (b.onclick = guard(async () => {

@@ -130,7 +130,7 @@ function render() {
 function card(o) {
   const mins = Math.floor((Date.now() - o.createdAt) / 60000);
   const late = (o.status === 'new' || o.status === 'cooking' || o.status === 'ready') && mins >= 10;
-  const items = o.items.map((i) => `<li><b>${i.qty} ×</b> ${esc(i.name)}${i.note ? `<small>📝 ${esc(i.note)}</small>` : ''}</li>`).join('');
+  const items = o.items.map((i) => `<li><b>${i.qty} ×</b> ${esc(i.name)}${i.option ? ` · <b>${esc(i.option)}</b>` : ''}${i.note ? `<small>📝 ${esc(i.note)}</small>` : ''}</li>`).join('');
   const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
   const refundBadge = o.refunded > 0 ? ` <span class="badge warn">คืนแล้ว ${fmt(o.refunded)}</span>` : '';
   const payBadge = o.status === 'cancelled' && !o.paid ? '' : o.paid

@@ -37,6 +37,12 @@
   </div>
 </div></dialog>
 
+<dialog id="optionDlg"><div class="dlg">
+  <h2 id="optionTitle">เลือกตัวเลือก</h2>
+  <div id="optionChoices" class="option-choices"></div>
+  <button class="btn ghost" id="closeOption">ยกเลิก</button>
+</div></dialog>
+
 <script>
 const isPickup = location.pathname.replace(/\/$/, '') === '/pickup';
 const table = isPickup ? null : parseInt(location.pathname.split('/')[2], 10);
@@ -52,8 +58,9 @@ const statusText = (o) => ({
 }[o.status] || o.status);
 
 let menu = null;
-let cart = {}; // itemId -> { qty, note }
+let cart = {}; // lineKey -> { itemId, option, qty, note }
 let activeCat = null;
+let choosingItem = null;
 const KEY = isPickup ? 'orders_pickup' : 'orders_t' + table;
 const loadIds = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const saveIds = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a.slice(-20))); } catch {} };
@@ -106,33 +113,62 @@ function renderMenu() {
     : '<p class="muted">ยังไม่มีเมนูในหมวดนี้</p>';
   $('menu').querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => change(b.dataset.add, +1)));
   $('menu').querySelectorAll('[data-sub]').forEach((b) => (b.onclick = () => change(b.dataset.sub, -1)));
+  $('menu').querySelectorAll('[data-choose]').forEach((b) => (b.onclick = () => chooseOption(b.dataset.choose)));
   renderCartBar();
 }
 
+const lineKey = (itemId, option = '') => `${itemId}|${encodeURIComponent(option)}`;
+
 function itemHtml(i) {
-  const q = cart[i.id] ? cart[i.id].qty : 0;
+  const hasOptions = Array.isArray(i.options) && i.options.length;
+  const key = lineKey(i.id);
+  const q = Object.values(cart).filter((l) => l.itemId === i.id).reduce((n, l) => n + l.qty, 0);
   const ctrl = !i.available
     ? '<span class="badge gray">หมด</span>'
-    : q
-      ? `<div class="qty"><button data-sub="${esc(i.id)}">−</button><b>${q}</b><button class="add" data-add="${esc(i.id)}">+</button></div>`
-      : `<div class="qty"><button class="add" data-add="${esc(i.id)}">+</button></div>`;
+    : hasOptions
+      ? `<button class="btn small" data-choose="${esc(i.id)}">เลือกไส้${q ? ` · ${q}` : ''}</button>`
+      : q
+        ? `<div class="qty"><button data-sub="${esc(key)}">−</button><b>${q}</b><button class="add" data-add="${esc(key)}">+</button></div>`
+        : `<div class="qty"><button class="add" data-add="${esc(key)}">+</button></div>`;
   const imageSrc = i.image ? `/img/${esc(i.image)}` : (i.defaultImage ? esc(i.defaultImage) : '');
   const imageScale = Number(i.imageScale) > 0 ? Number(i.imageScale) : 1;
   const img = imageSrc ? `<span class="thumbbox"><img class="thumb" loading="lazy" decoding="async" src="${imageSrc}" alt="${esc(i.name)}" style="transform:scale(${imageScale})"></span>` : '';
   const stock = Number.isInteger(i.stockCount) ? `<div class="muted" style="font-size:13px">เหลือ ${i.stockCount}</div>` : '';
-  return `<div class="card item ${i.available ? '' : 'out'}">${img}<div class="body"><div class="name">${esc(i.name)}</div><div class="price">${fmt(i.price)}</div>${stock}</div>${ctrl}</div>`;
+  const description = i.description ? `<div class="muted" style="font-size:13px">${esc(i.description)}</div>` : '';
+  return `<div class="card item ${i.available ? '' : 'out'}">${img}<div class="body"><div class="name">${esc(i.name)}</div><div class="price">${fmt(i.price)}</div>${description}${stock}</div>${ctrl}</div>`;
 }
 
-function change(id, d) {
-  const cur = cart[id] ? cart[id].qty : 0;
+function change(key, d) {
+  const current = cart[key];
+  const cur = current ? current.qty : 0;
   const n = Math.max(0, Math.min(20, cur + d));
-  if (n === 0) delete cart[id];
-  else cart[id] = { qty: n, note: cart[id] ? cart[id].note : '' };
+  if (n === 0) delete cart[key];
+  else if (current) current.qty = n;
+  else {
+    const itemId = key.split('|')[0];
+    cart[key] = { itemId, option: '', qty: n, note: '' };
+  }
   renderMenu();
   if ($('cartDlg').open) renderCart();
 }
 
-const cartLines = () => Object.entries(cart).map(([id, v]) => ({ item: menu.items.find((i) => i.id === id), ...v })).filter((l) => l.item);
+function chooseOption(itemId) {
+  choosingItem = menu.items.find((i) => i.id === itemId);
+  if (!choosingItem) return;
+  $('optionTitle').textContent = `เลือกไส้ ${choosingItem.name}`;
+  $('optionChoices').innerHTML = choosingItem.options.map((option) => `<button class="btn ghost" data-option="${esc(option)}">${esc(option)}</button>`).join('');
+  $('optionChoices').querySelectorAll('[data-option]').forEach((b) => (b.onclick = () => {
+    const option = b.dataset.option, key = lineKey(choosingItem.id, option);
+    if (cart[key]) cart[key].qty = Math.min(20, cart[key].qty + 1);
+    else cart[key] = { itemId: choosingItem.id, option, qty: 1, note: '' };
+    $('optionDlg').close(); renderMenu();
+  }));
+  $('optionDlg').showModal();
+}
+
+$('closeOption').onclick = () => $('optionDlg').close();
+
+const cartLines = () => Object.entries(cart).map(([key, v]) => ({ key, item: menu.items.find((i) => i.id === v.itemId), ...v })).filter((l) => l.item);
 const cartSum = () => cartLines().reduce((a, l) => a + l.item.price * l.qty, 0);
 
 function renderCartBar() {
@@ -146,9 +182,9 @@ function renderCart() {
   const lines = cartLines();
   $('cartRows').innerHTML = lines.map((l) => `
     <div class="row" style="flex-wrap:wrap">
-      <div style="flex:1"><b>${esc(l.item.name)}</b><div class="muted">${fmt(l.item.price)}</div></div>
-      <div class="qty"><button data-sub="${esc(l.item.id)}">−</button><b>${l.qty}</b><button class="add" data-add="${esc(l.item.id)}">+</button></div>
-      <input class="note" data-note="${esc(l.item.id)}" maxlength="100" placeholder="หมายเหตุ (เช่น ไม่เผ็ด)" value="${esc(l.note || '')}">
+      <div style="flex:1"><b>${esc(l.item.name)}</b>${l.option ? `<div>${esc(l.option)}</div>` : ''}<div class="muted">${fmt(l.item.price)}</div></div>
+      <div class="qty"><button data-sub="${esc(l.key)}">−</button><b>${l.qty}</b><button class="add" data-add="${esc(l.key)}">+</button></div>
+      <input class="note" data-note="${esc(l.key)}" maxlength="100" placeholder="หมายเหตุ (เช่น ไม่เผ็ด)" value="${esc(l.note || '')}">
     </div>`).join('');
   $('cartRows').querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => change(b.dataset.add, +1)));
   $('cartRows').querySelectorAll('[data-sub]').forEach((b) => (b.onclick = () => {
@@ -174,7 +210,7 @@ $('placeBtn').onclick = async () => {
   const btn = $('placeBtn');
   btn.disabled = true;
   try {
-    const items = cartLines().map((l) => ({ itemId: l.item.id, qty: l.qty, note: l.note || '' }));
+    const items = cartLines().map((l) => ({ itemId: l.item.id, qty: l.qty, option: l.option || '', note: l.note || '' }));
     const customerName = isPickup ? $('customerName').value.trim() : null;
     if (isPickup && !customerName) throw new Error('กรุณากรอกชื่อสำหรับเรียกคิว');
     const o = await api('/api/orders', {
@@ -212,7 +248,7 @@ function orderHtml(o) {
   const btn = !o.paid && o.status !== 'cancelled'
     ? `<div class="pay-instruction"><b>ยอดชำระ ${fmt(o.total)}</b><br><span class="muted">สแกน QR บัญชีร้านที่เคาน์เตอร์หรือขอจากพนักงาน แล้วพิมพ์ยอดนี้ด้วยตัวเอง</span></div>`
     : '';
-  const lines = o.items.map((i) => `${esc(i.name)} × ${i.qty}`).join(', ');
+  const lines = o.items.map((i) => `${esc(i.name)}${i.option ? ` (${esc(i.option)})` : ''} × ${i.qty}`).join(', ');
   const orderLabel = isPickup ? `คิว ${esc(o.queueNo || '-')} · ${esc(o.customerName || '')}` : `ออเดอร์ #${o.seq}`;
   return `<div class="card order-card">
     <div class="hd"><b>${orderLabel} · ${fmt(o.total)}</b><span>${st} ${pay}</span></div>
