@@ -420,18 +420,18 @@ staff.post('/orders/:id/status', asyncRoute(async (req, res) => {
 // ---- รับเงิน (บันทึกวิธีจ่ายและเวลา) / ยกเลิกการรับเงิน
 const METHODS = ['promptpay', 'cash', 'other'];
 const METHOD_TH = { promptpay: 'PromptPay', cash: 'เงินสด', other: 'อื่น ๆ' };
+const INSTANT_POS_CATEGORIES = new Set(['beer', 'soft-drinks', 'sweets', 'bottled-drinks', 'bakery']);
 
 // ---- POS หน้าเคาน์เตอร์: พนักงานบันทึกการขายและรับเงินในครั้งเดียว
 staff.post('/pos/orders', asyncRoute(async (req, res) => {
   const method = req.body.method || 'promptpay';
   if (!METHODS.includes(method)) return res.status(400).json({ error: 'วิธีจ่ายไม่ถูกต้อง' });
-  const fulfillment = req.body.fulfillment === 'prepare' ? 'prepare' : 'immediate';
-  const customerName = String(req.body.customerName || '').trim().replace(/\s+/g, ' ').slice(0, 30) || null;
   const lines = Array.isArray(req.body.items) ? req.body.items : [];
   if (!lines.length || lines.length > 30) return res.status(400).json({ error: 'ตะกร้าว่างหรือมีรายการมากเกินไป' });
 
   const items = [];
   let totalSatang = 0;
+  let requiresPreparation = false;
   const stockNeeded = new Map();
   for (const line of lines) {
     const item = data.items.find((x) => x.id === line.itemId);
@@ -442,6 +442,7 @@ staff.post('/pos/orders', asyncRoute(async (req, res) => {
     if (Number.isInteger(item.stockCount) && needed > item.stockCount)
       return res.status(409).json({ error: `${item.name} เหลือเพียง ${item.stockCount} ชิ้น` });
     stockNeeded.set(item.id, needed);
+    if (!INSTANT_POS_CATEGORIES.has(item.categoryId)) requiresPreparation = true;
     const priceSatang = Math.round(item.price * 100);
     totalSatang += priceSatang * qty;
     items.push({ itemId: item.id, name: item.name, price: item.price, qty, note: '' });
@@ -451,11 +452,11 @@ staff.post('/pos/orders', asyncRoute(async (req, res) => {
   if (data.seq.date !== today) data.seq = { date: today, n: 0 };
   if (data.pickupSeq.date !== today) data.pickupSeq = { date: today, n: 0 };
   data.seq.n += 1;
-  data.pickupSeq.n += 1;
+  if (requiresPreparation) data.pickupSeq.n += 1;
   const order = {
-    id: uid(), seq: data.seq.n, orderType: 'pos', table: null, customerName,
-    queueNo: `A${String(data.pickupSeq.n).padStart(3, '0')}`,
-    items, totalSatang, status: fulfillment === 'prepare' ? 'cooking' : 'served',
+    id: uid(), seq: data.seq.n, orderType: 'pos', table: null, customerName: null,
+    queueNo: requiresPreparation ? `A${String(data.pickupSeq.n).padStart(3, '0')}` : null,
+    items, totalSatang, status: requiresPreparation ? 'cooking' : 'served',
     paid: true, paymentMethod: method, paidAt: now, createdAt: now, updatedAt: now,
   };
   for (const [itemId, qty] of stockNeeded) {

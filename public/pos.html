@@ -23,26 +23,17 @@
   <aside class="pos-cart card">
     <div class="pos-cart-title"><h2>รายการขาย</h2><button class="btn ghost small" id="clearBtn">ล้าง</button></div>
     <div id="cartRows" class="pos-cart-rows"><p class="muted">แตะสินค้าเพื่อเพิ่มรายการ</p></div>
-    <label class="pos-field">ชื่อเรียกคิว (ไม่บังคับ)
-      <input type="text" id="customerName" maxlength="30" placeholder="เช่น คุณเอ">
-    </label>
-    <div class="pos-choice">
-      <b>การรับสินค้า</b>
-      <label><input type="radio" name="fulfillment" value="immediate" checked> รับสินค้าเลย</label>
-      <label><input type="radio" name="fulfillment" value="prepare"> ต้องจัดเตรียม/เรียกคิว</label>
-    </div>
     <div class="pos-choice">
       <b>วิธีชำระ</b>
       <label><input type="radio" name="method" value="promptpay" checked> PromptPay</label>
       <label><input type="radio" name="method" value="cash"> เงินสด</label>
-      <label><input type="radio" name="method" value="other"> อื่น ๆ</label>
     </div>
     <label class="pos-field hidden" id="cashBox">รับเงินสด (บาท)
       <input type="number" id="cashReceived" min="0" step="1" inputmode="decimal" placeholder="0">
       <span id="changeText" class="muted">เงินทอน ฿0</span>
     </label>
     <div class="pos-total"><span>รวมทั้งหมด</span><strong id="total">฿0</strong></div>
-    <button class="btn pos-charge" id="chargeBtn" disabled>รับเงินและบันทึกการขาย</button>
+    <button class="btn pos-charge" id="chargeBtn" disabled>รับเงินและจบการขาย</button>
     <div class="muted pos-hint" id="payHint">ตรวจเงินเข้าบัญชีจริงก่อนกดบันทึก</div>
     <div id="result"></div>
   </aside>
@@ -132,12 +123,12 @@ $('chargeBtn').onclick = async () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         items: lines().map((x) => ({ itemId: x.item.id, qty: x.qty })),
-        customerName: $('customerName').value,
-        fulfillment: selected('fulfillment'), method,
+        method,
       }),
     });
-    $('result').innerHTML = `<div class="pos-success"><b>บันทึกการขายแล้ว</b><strong>คิว ${esc(order.queueNo)}</strong><span>${fmt(order.total)} · ${order.status === 'served' ? 'รับสินค้าแล้ว' : 'ส่งไปจอรับออเดอร์แล้ว'}</span></div>`;
-    cart = {}; $('customerName').value = ''; $('cashReceived').value = '';
+    const preparing = order.status !== 'served';
+    $('result').innerHTML = `<div class="pos-success"><b>${preparing ? 'ส่งไปจัดเตรียมแล้ว' : 'จบการขายแล้ว'}</b>${preparing ? `<strong>คิว ${esc(order.queueNo)}</strong>` : ''}<span>${fmt(order.total)}${preparing ? ' · ส่งไปหน้ารับออเดอร์แล้ว' : ''}</span></div>`;
+    cart = {}; $('cashReceived').value = '';
     menu = await api('/api/menu');
     renderProducts(); renderCart();
   } catch (error) {
