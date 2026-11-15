@@ -296,7 +296,7 @@ function renderSettings() {
       <label>ชื่อร้าน<input type="text" id="s-name" value="${esc(s.shopName)}" maxlength="50"></label>
       <label>จำนวนโต๊ะ<input type="number" id="s-tables" value="${s.tableCount}" min="1" max="200"></label>
       <label class="inline"><input type="checkbox" id="s-pickup" ${s.pickupEnabled !== false ? 'checked' : ''}>
-        เปิดรับออเดอร์ “สั่งรับเองที่เคาน์เตอร์”</label>
+        เปิดรับออเดอร์ “สั่งเมนู รับที่เคาน์เตอร์”</label>
       <div class="muted">การชำระเงิน: พนักงานแจ้งยอด และให้ลูกค้าสแกน QR บัญชีร้านแล้วพิมพ์ยอดเอง ก่อนกดรับเงินให้ตรวจเงินเข้าบัญชีจริงเสมอ</div>
       <label class="inline"><input type="checkbox" id="s-req" ${s.requirePaymentBeforeKitchen ? 'checked' : ''}>
         ให้เริ่มทำอาหารได้ก็ต่อเมื่อรับเงินแล้วเท่านั้น (กันลูกค้าไม่จ่าย แต่ต้องรอพนักงานกด "รับเงินแล้ว" ทุกออเดอร์)</label>
@@ -324,7 +324,7 @@ function renderQr() {
       <button class="btn small" onclick="window.print()">พิมพ์</button>
     </div>
     <p class="muted noprint">QR ชี้ไปที่ <b>${esc(cfg.baseUrl)}</b> — ใช้ใบ “สั่งรับเอง” ที่เคาน์เตอร์ และใช้ QR โต๊ะสำหรับลูกค้าที่นั่งในร้าน</p>
-    <div class="qrgrid pickup-qr"><figure><img src="/api/staff/pickupqr" alt="QR สั่งรับเอง"><figcaption>สั่งรับเองที่เคาน์เตอร์</figcaption><div class="muted">สแกนเพื่อสั่งเมนู</div></figure></div>
+    <div class="qrgrid pickup-qr"><figure><img src="/api/staff/pickupqr" alt="QR สั่งรับเอง"><figcaption>สั่งเมนู รับที่เคาน์เตอร์</figcaption><div class="muted">สแกนเพื่อสั่งเมนู</div></figure></div>
     <h2>QR สำหรับติดโต๊ะ (${n} โต๊ะ)</h2>
     <div class="qrgrid">${figs}</div>`;
 }
