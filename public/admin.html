@@ -317,7 +317,7 @@ function renderSettings() {
 function renderQr() {
   const n = cfg.settings.tableCount;
   let figs = '';
-  for (let i = 1; i <= n; i++) figs += `<figure><img src="/api/staff/tableqr/${i}" alt="QR โต๊ะ ${i}"><figcaption>โต๊ะ ${i}</figcaption><div class="muted">สแกนเพื่อสั่งอาหาร</div></figure>`;
+  for (let i = 1; i <= n; i++) figs += `<figure><img src="/api/staff/tableqr/${i}" alt="QR โต๊ะ ${i}"><figcaption>โต๊ะ ${i}</figcaption><div class="muted">สแกนเพื่อสั่งเมนู</div></figure>`;
   $('p-qr').innerHTML = `${warnings()}
     <div class="inline noprint" style="justify-content:space-between">
       <h2>QR สำหรับลูกค้า</h2>
