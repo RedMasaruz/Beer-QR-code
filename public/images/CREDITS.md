@@ -1,5 +1,11 @@
 # Image credits
 
+## Coca-Cola Original Taste can 325 ml (`coke-can.jpg`)
+
+- Source: [BritiShop Thailand — Coke can 325 ml](https://britishop.com/th/product/coke-330ml-bottle/)
+- Product image: Coca-Cola Original Taste can for the Thai market
+- Change: resized and recompressed for web use
+
 ## Leo beer can 320 ml (`beer-leo-320.jpg`)
 
 - Source: [Thailand Greenhouse Gas Management Organization — Leo beer can 320 ml](https://thaicarbonlabel.tgo.or.th/index.php?action=WkdWMFlXbHM&lang=TH&mod=Y0hKdlpIVmpkSE5mWVhCd2NtOTJZV3c9&param=TWpBeE1UTT0)

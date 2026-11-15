@@ -48,7 +48,7 @@ function defaultData() {
       { id: 'i13', categoryId: 'beer', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
       { id: 'i9', categoryId: 'beer', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
       { id: 'i10', categoryId: 'beer', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
-      { id: 'i14', categoryId: 'soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24 },
+      { id: 'i14', categoryId: 'soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24, defaultImage: '/images/coke-can.jpg' },
       { id: 'i11', categoryId: 'snacks', name: 'เฟรนช์ฟรายส์', price: 30, available: true, defaultImage: '/images/snack-fries.jpg' },
       { id: 'i12', categoryId: 'snacks', name: 'ลูกชิ้นทอด (ไม้ละ)', price: 10, available: true, defaultImage: '/images/snack-meatballs.jpg' },
     ],
