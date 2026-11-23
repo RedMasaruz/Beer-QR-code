@@ -902,8 +902,24 @@ app.use((err, req, res, next) => {
 });
 
 async function start() {
-  data = normalizeData(await persistence.load(defaultData()));
-  await save(); // บันทึก migration และสร้าง singleton row ในการเปิดครั้งแรก
+  const retry = async (label, action, attempts = 6) => {
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await action();
+      } catch (error) {
+        lastError = error;
+        if (attempt === attempts) break;
+        const waitMs = Math.min(attempt * 2000, 10000);
+        console.warn(`${label} ไม่สำเร็จ (ครั้งที่ ${attempt}/${attempts}) ลองใหม่ใน ${waitMs / 1000} วินาที: ${error.message}`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+    }
+    throw lastError;
+  };
+
+  data = normalizeData(await retry('โหลดข้อมูล', () => persistence.load(defaultData())));
+  await retry('บันทึกข้อมูลเริ่มต้น', save); // บันทึก migration และสร้าง singleton row ในการเปิดครั้งแรก
   app.listen(PORT, () => {
     console.log(`เปิดใช้งานที่ http://localhost:${PORT}`);
     console.log(`  POS: /pos    รับออเดอร์: /kitchen    หน้าแอดมิน: /admin    หน้าลูกค้า: /t/1`);
