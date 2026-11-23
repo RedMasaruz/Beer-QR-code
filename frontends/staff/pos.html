@@ -54,7 +54,7 @@ let menu = null, activeCat = null, cart = {}, choosingItem = null;
 
 async function api(url, opts) {
   const r = await fetch(url, opts);
-  if (r.status === 401) { location.href = '/login?next=/pos'; throw new Error('unauthorized'); }
+  if (r.status === 401) { location.href = '/staff/login?next=/pos'; throw new Error('unauthorized'); }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
   return j;
@@ -164,7 +164,7 @@ $('chargeBtn').onclick = async () => {
 
 (async () => {
   try {
-    await api('/api/me').then((me) => { if (!me.staff) { location.href = '/login?next=/pos'; throw new Error('unauthorized'); } });
+    await api('/api/me').then((me) => { if (!me.staff) { location.href = '/staff/login?next=/pos'; throw new Error('unauthorized'); } });
     menu = await api('/api/menu');
     $('shop').textContent = 'POS · ' + menu.shopName;
     activeCat = menu.categories[0] ? menu.categories[0].id : null;

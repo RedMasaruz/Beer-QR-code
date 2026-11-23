@@ -10,6 +10,7 @@ const STAFF_PIN = process.env.STAFF_PIN || '1234';
 const ADMIN_PIN = process.env.ADMIN_PIN || '5678';
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'data.json');
 const IMG_DIR = process.env.IMG_DIR || path.join(path.dirname(DATA_FILE), 'images');
+const FRONTEND_DIR = path.join(__dirname, 'frontends');
 const persistence = createPersistence({ dataFile: DATA_FILE, imageDir: IMG_DIR });
 const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -257,13 +258,37 @@ app.get('/img/:file', asyncRoute(async (req, res) => {
   }
 }));
 
-const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
-app.get('/t/:table', page('customer.html'));
-app.get('/pickup', page('customer.html'));
-app.get('/pos', page('pos.html'));
-app.get('/kitchen', page('kitchen.html'));
-app.get('/admin', page('admin.html'));
-app.get('/login', page('login.html'));
+const frontendPage = (...parts) => (req, res) => res.sendFile(path.join(FRONTEND_DIR, ...parts));
+const staffPage = (file, next) => (req, res) => {
+  if (!isStaff(req)) return res.redirect(`/staff/login?next=${encodeURIComponent(next)}`);
+  res.sendFile(path.join(FRONTEND_DIR, 'staff', file));
+};
+const adminPage = (req, res) => {
+  if (!isAdmin(req)) return res.redirect('/admin/login');
+  res.sendFile(path.join(FRONTEND_DIR, 'admin', 'index.html'));
+};
+
+// Frontend 1: ลูกค้า (สาธารณะ)
+app.get('/t/:table', frontendPage('customer', 'index.html'));
+app.get('/pickup', frontendPage('customer', 'index.html'));
+app.get('/image-credits.html', frontendPage('customer', 'image-credits.html'));
+
+// Frontend 2: พนักงาน (PIN พนักงานหรือสิทธิ์แอดมิน)
+app.get('/staff/login', frontendPage('staff', 'login.html'));
+app.get('/pos', staffPage('pos.html', '/pos'));
+app.get('/kitchen', staffPage('kitchen.html', '/kitchen'));
+
+// Frontend 3: แอดมิน (PIN แอดมินเท่านั้น)
+app.get('/admin/login', frontendPage('admin', 'login.html'));
+app.get('/admin', adminPage);
+
+// รองรับลิงก์ล็อกอินเดิมโดยส่งไปยัง Frontend ที่ถูกต้อง
+app.get('/login', (req, res) => {
+  const next = req.query.next;
+  if (next === '/admin') return res.redirect('/admin/login');
+  const staffNext = next === '/pos' ? '/pos' : '/kitchen';
+  res.redirect(`/staff/login?next=${encodeURIComponent(staffNext)}`);
+});
 
 function baseUrl(req) {
   return (process.env.BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');

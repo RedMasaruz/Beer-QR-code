@@ -31,7 +31,7 @@ let tab = 'summary';
 
 async function api(url, method = 'GET', body) {
   const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-  if (r.status === 401) { location.href = '/login?next=/admin'; throw new Error('unauthorized'); }
+  if (r.status === 401) { location.href = '/admin/login'; throw new Error('unauthorized'); }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
   return j;
@@ -276,7 +276,7 @@ function renderMenu() {
     try {
       const blob = await shrinkToJpeg(f);
       const r = await fetch('/api/staff/items/' + inp.dataset.img + '/image', { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
-      if (r.status === 401) { location.href = '/login?next=/admin'; return; }
+      if (r.status === 401) { location.href = '/admin/login'; return; }
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'อัปโหลดไม่สำเร็จ');
       await show('menu');

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบแอดมิน</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap" style="padding-top:60px">
+  <div class="card form">
+    <h2 style="margin:0">เข้าสู่ระบบแอดมิน</h2>
+    <p class="muted" style="margin:0">ใช้รหัสแอดมินเท่านั้น</p>
+    <label>PIN แอดมิน
+      <input type="password" id="pin" inputmode="numeric" autocomplete="current-password" autofocus>
+    </label>
+    <div id="err" class="badge bad hidden"></div>
+    <button class="btn" id="go">เข้าสู่หน้าแอดมิน</button>
+  </div>
+</div>
+<script>
+async function login() {
+  const err = document.getElementById('err');
+  err.classList.add('hidden');
+  const r = await fetch('/api/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: document.getElementById('pin').value, role: 'admin' }),
+  });
+  if (r.ok) { location.href = '/admin'; return; }
+  const j = await r.json().catch(() => ({}));
+  err.textContent = j.error || 'เข้าสู่ระบบไม่สำเร็จ';
+  err.classList.remove('hidden');
+}
+document.getElementById('go').onclick = login;
+document.getElementById('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>
