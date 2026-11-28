@@ -55,7 +55,7 @@ function defaultData() {
       { id: 'food-grill-mixed-set', categoryId: 'food-hotpot-grill', name: 'ชุดรวมย่าง', price: 159, available: true, description: 'ซี่โครงหมูย่าง + สามชั้นย่าง + คอหมูย่าง', defaultImage: '/images/food-mixed-grill.jpg' },
       { id: 'drink-beer-leo-320', categoryId: 'drink-beer', name: 'เบียร์ Leo กระป๋องเล็ก 320 มล.', price: 45, available: true, stockCount: 24, defaultImage: '/images/beer-leo-320.jpg' },
       { id: 'drink-beer-leo-490', categoryId: 'drink-beer', name: 'เบียร์ Leo กระป๋องใหญ่ 490 มล.', price: 65, available: true, stockCount: 12, defaultImage: '/images/beer-leo.jpg' },
-      { id: 'drink-beer-chang-320', categoryId: 'drink-beer', name: 'เบียร์ช้าง กระป๋องเล็ก 320 มล.', price: 45, available: true },
+      { id: 'drink-beer-chang-320', categoryId: 'drink-beer', name: 'เบียร์ช้าง กระป๋องเล็ก 320 มล.', price: 45, available: true, defaultImage: '/images/beer-chang-320.png' },
       { id: 'drink-beer-chang-long', categoryId: 'drink-beer', name: 'เบียร์ช้าง กระป๋องยาว', price: 60, available: true, visible: false, defaultImage: '/images/beer-chang.jpg', imageScale: 1.1 },
       { id: 'drink-soft-coke-can', categoryId: 'drink-soft-drinks', name: 'โค้กกระป๋อง', price: 20, available: true, stockCount: 24, defaultImage: '/images/coke-can.jpg' },
       { id: 'food-snack-fries', categoryId: 'food-snacks', name: 'เฟรนช์ฟรายส์', price: 39, available: true, defaultImage: '/images/snack-fries.jpg' },
